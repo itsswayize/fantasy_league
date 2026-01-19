@@ -1,6 +1,7 @@
 package com.example.fantasyleague.controller;
 
 import com.example.fantasyleague.model.Fixture;
+import com.example.fantasyleague.model.Player;
 import com.example.fantasyleague.model.Team;
 import com.example.fantasyleague.repository.FixtureRepository;
 import com.example.fantasyleague.repository.TeamRepository;
@@ -64,5 +65,37 @@ public class LeagueController {
     public ResponseEntity<Map<String, String>> syncTeams() {
         externalApiService.fetchTeamsFromApi();
         return ResponseEntity.ok(Map.of("message", "Sync started. Check console for completion."));
+    }
+
+    @GetMapping("/clubs")
+    public List<Team> getClubs() {
+        return teamRepo.findAll().stream()
+                .sorted((t1, t2) -> t1.getName().compareToIgnoreCase(t2.getName()))
+                .toList();
+    }
+
+    @PostMapping("/sync-standings")
+    public ResponseEntity<Map<String, String>> syncStandings() {
+        externalApiService.fetchStandings();
+        return ResponseEntity.ok(Map.of("message", "Standings sync triggered"));
+    }
+
+    @GetMapping("/clubs/{id}/squad")
+    public List<Player> getClubSquad(@PathVariable Long id) {
+        Team team = teamRepo.findById(id).orElseThrow();
+        return team.getSquad();
+    }
+
+    @GetMapping("/clubs/{id}")
+    public Team getClubDetails(@PathVariable Long id) {
+        return teamRepo.findById(id).orElseThrow();
+    }
+
+    @GetMapping("/clubs/{id}/fixtures")
+    public List<Fixture> getClubFixtures(@PathVariable Long id) {
+        // Return fixtures where homeTeam.id or awayTeam.id matches the path variable
+        return fixtureRepo.findAll().stream()
+                .filter(f -> f.getHomeTeam().getId().equals(id) || f.getAwayTeam().getId().equals(id))
+                .toList();
     }
 }

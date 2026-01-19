@@ -84,4 +84,87 @@ public class ExternalApiService {
                     System.err.println("Sync Error: " + error.getMessage());
                 });
     }
+
+
+
+    // Inside ExternalApiService.java
+
+    @SuppressWarnings("unchecked")
+    public void fetchStandings() {
+        this.webClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/")
+                        .queryParam("met", "Standings")
+                        .queryParam("leagueId", "152")
+                        .queryParam("APIkey", API_KEY)
+                        .build())
+                .retrieve()
+                .bodyToMono(Map.class)
+                .subscribe(response -> {
+                    if (response != null && response.get("result") != null) {
+                        Map<String, Object> result = (Map<String, Object>) response.get("result");
+                        List<Map<String, Object>> standings = (List<Map<String, Object>>) result.get("total");
+
+                        for (Map<String, Object> sData : standings) {
+                            String teamName = (String) sData.get("standing_team");
+                            Team team = teamRepo.findByName(teamName); // Requires findByName in TeamRepository
+                            if (team != null) {
+                                team.setMatchesPlayed(Integer.parseInt((String) sData.get("standing_P")));
+                                team.setWins(Integer.parseInt((String) sData.get("standing_W")));
+                                team.setDraws(Integer.parseInt((String) sData.get("standing_D")));
+                                team.setLosses(Integer.parseInt((String) sData.get("standing_L")));
+                                team.setGoalsFor(Integer.parseInt((String) sData.get("standing_F")));
+                                team.setGoalsAgainst(Integer.parseInt((String) sData.get("standing_A")));
+                                team.setGoalDifference(Integer.parseInt((String) sData.get("standing_GD")));
+                                team.setPoints(Integer.parseInt((String) sData.get("standing_PTS")));
+                                teamRepo.save(team);
+                            }
+                        }
+                    }
+                });
+    }
+
+    public void fetchInjuries() {
+        this.webClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/")
+                        .queryParam("met", "Injuries")
+                        .queryParam("leagueId", "152")
+                        .queryParam("APIkey", API_KEY)
+                        .build())
+                .retrieve()
+                .bodyToMono(Map.class)
+                .subscribe(response -> {
+                    // Logic to save/update injuries to a new Injury entity
+                    System.out.println("Injuries synced.");
+                });
+    }
+
+    public void fetchTeamSquad(String teamId) {
+        // met=Players&teamId=...
+    }
+
+    @SuppressWarnings("unchecked")
+    public void fetchTopScorers() {
+        this.webClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/")
+                        .queryParam("met", "Topscorers")
+                        .queryParam("leagueId", "152")
+                        .queryParam("APIkey", API_KEY)
+                        .build())
+                .retrieve()
+                .bodyToMono(Map.class)
+                .subscribe(response -> {
+                    if (response != null && response.get("result") != null) {
+                        List<Map<String, Object>> scorers = (List<Map<String, Object>>) response.get("result");
+                        for (Map<String, Object> sData : scorers) {
+                            // Update existing player stats in your database
+                            String playerName = (String) sData.get("player_name");
+                            // Add logic here to find player by name and update goals/assists
+                        }
+                    }
+                });
+    }
+
 }

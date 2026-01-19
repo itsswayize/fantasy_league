@@ -1,5 +1,6 @@
 package com.example.fantasyleague.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore; // Add this import
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -12,12 +13,13 @@ public class Player {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private String name;
-    private String position; // e.g., "Forwards", "Midfielders"
+    private String position;
     private String imageUrl;
-    private int goals;
-    private int assists;
+    private boolean injured;
+    private String injuryType;
 
     @ManyToOne
     @JoinColumn(name = "team_id")
+    @JsonIgnore // This stops the infinite loop
     private Team team;
 }
