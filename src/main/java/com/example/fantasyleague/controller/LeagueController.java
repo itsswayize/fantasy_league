@@ -98,12 +98,13 @@ public class LeagueController {
         return ResponseEntity.ok().build();
     }
 
-    @PostMapping("/sync-real-fixtures")
-    public ResponseEntity<Map<String, String>> syncRealFixtures() {
-        externalApiService.fetchRealFixtures();
-        return ResponseEntity.ok(Map.of("message", "Real Fixtures sync started"));
+    @GetMapping("/fixtures/sync")
+    public ResponseEntity<Map<String, String>> syncFixturesByDate(
+            @RequestParam String from,
+            @RequestParam String to) {
+        externalApiService.fetchRealFixtures(from, to);
+        return ResponseEntity.ok(Map.of("message", "Syncing matches for: " + from + " to " + to));
     }
-
     @PostMapping("/sync-injuries")
     public ResponseEntity<Map<String, String>> syncInjuries() {
         externalApiService.fetchInjuries();

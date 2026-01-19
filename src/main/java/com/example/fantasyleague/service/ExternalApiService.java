@@ -1,14 +1,12 @@
 package com.example.fantasyleague.service;
 
-import com.example.fantasyleague.model.Fixture;
-import com.example.fantasyleague.model.Player;
-import com.example.fantasyleague.model.Team;
-import com.example.fantasyleague.repository.FixtureRepository;
-import com.example.fantasyleague.repository.PlayerRepository;
-import com.example.fantasyleague.repository.TeamRepository;
+import com.example.fantasyleague.model.*;
+import com.example.fantasyleague.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
+
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -36,6 +34,20 @@ public class ExternalApiService {
         this.fixtureRepo = fixtureRepo;
     }
 
+    /**
+     * Helper method to find teams using loose matching for variants like "Manchester Utd" or "Wolves".
+     */
+    private Team findTeamLoosely(String apiName) {
+        return teamRepo.findAll().stream()
+                .filter(t -> t.getName().equalsIgnoreCase(apiName) ||
+                        t.getName().toLowerCase().contains(apiName.toLowerCase()) ||
+                        apiName.toLowerCase().contains(t.getName().toLowerCase()) ||
+                        (apiName.equals("Manchester Utd") && t.getName().contains("Manchester United")) ||
+                        (apiName.equals("Wolves") && t.getName().contains("Wolverhampton")))
+                .findFirst()
+                .orElse(null);
+    }
+
     @SuppressWarnings("unchecked")
     public void fetchTeamsFromApi() {
         this.webClient.get()
@@ -53,7 +65,7 @@ public class ExternalApiService {
 
                         for (Map<String, Object> teamData : teams) {
                             String teamName = (String) teamData.get("team_name");
-                            Team team = teamRepo.findByName(teamName);
+                            Team team = findTeamLoosely(teamName);
                             if (team == null) {
                                 team = new Team();
                                 team.setName(teamName);
@@ -99,14 +111,12 @@ public class ExternalApiService {
                         List<Map<String, Object>> standings = (List<Map<String, Object>>) result.get("total");
 
                         for (Map<String, Object> sData : standings) {
-                            // FIX: Only process data for the main Premier League stage (Stage 6)
-                            // This prevents Women's Championship data (Stage 978) from overwriting your teams
+                            // Stage 6 is professional PL
                             if (String.valueOf(sData.get("fk_stage_key")).equals("6")) {
-                                String teamName = (String) sData.get("standing_team");
-                                Team team = teamRepo.findByName(teamName);
+                                String apiTeamName = (String) sData.get("standing_team");
+                                Team team = findTeamLoosely(apiTeamName);
 
                                 if (team != null) {
-                                    // Map all real columns from the API to your database
                                     team.setPoints(Integer.parseInt(String.valueOf(sData.get("standing_PTS"))));
                                     team.setMatchesPlayed(Integer.parseInt(String.valueOf(sData.get("standing_P"))));
                                     team.setWins(Integer.parseInt(String.valueOf(sData.get("standing_W"))));
@@ -125,14 +135,14 @@ public class ExternalApiService {
     }
 
     @SuppressWarnings("unchecked")
-    public void fetchRealFixtures() {
+    public void fetchRealFixtures(String fromDate, String toDate) {
         this.webClient.get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/")
                         .queryParam("met", "Fixtures")
                         .queryParam("leagueId", "152")
-                        .queryParam("from", "2025-08-01")
-                        .queryParam("to", "2026-05-30")
+                        .queryParam("from", fromDate)
+                        .queryParam("to", toDate)
                         .queryParam("APIkey", API_KEY)
                         .build())
                 .retrieve()
@@ -140,11 +150,27 @@ public class ExternalApiService {
                 .subscribe(response -> {
                     if (response != null && response.get("result") != null) {
                         List<Map<String, Object>> fixtures = (List<Map<String, Object>>) response.get("result");
-                        for (Map<String, Object> fData : fixtures) {
-                            Fixture f = new Fixture();
-                            f.setHomeTeam(teamRepo.findByName((String) fData.get("event_home_team")));
-                            f.setAwayTeam(teamRepo.findByName((String) fData.get("event_away_team")));
 
+                        for (Map<String, Object> fData : fixtures) {
+                            // FIX: Use the unique API event key to prevent duplicates
+                            Long eventKey = Long.parseLong(String.valueOf(fData.get("event_key")));
+
+                            // Check if fixture already exists in database by ID
+                            // This causes fixtureRepo.save() to UPDATE instead of INSERT
+                            Fixture f = fixtureRepo.findById(eventKey).orElse(new Fixture());
+
+                            if (f.getId() == null) {
+                                f.setId(eventKey); // Set the ID to match the eventKey for new entries
+                            }
+
+                            // Use loose matching to find correct teams in DB
+                            f.setHomeTeam(findTeamLoosely((String) fData.get("event_home_team")));
+                            f.setAwayTeam(findTeamLoosely((String) fData.get("event_away_team")));
+
+                            // Set the real date from the API
+                            f.setMatchDate(LocalDate.parse((String) fData.get("event_date")));
+
+                            // Parse the final score result (e.g., "1 - 2")
                             String finalResult = String.valueOf(fData.get("event_final_result"));
                             if (finalResult != null && finalResult.contains(" - ")) {
                                 String[] scores = finalResult.split(" - ");
@@ -156,9 +182,15 @@ public class ExternalApiService {
                                     f.setAwayScore(0);
                                 }
                             }
+
                             f.setPlayed("Finished".equals(fData.get("event_status")));
-                            fixtureRepo.save(f);
+
+                            // Only save if both teams were successfully mapped to your DB
+                            if (f.getHomeTeam() != null && f.getAwayTeam() != null) {
+                                fixtureRepo.save(f);
+                            }
                         }
+                        System.out.println("Fixtures for " + fromDate + " to " + toDate + " synced and unique.");
                     }
                 });
     }
@@ -193,9 +225,7 @@ public class ExternalApiService {
                 });
     }
 
-    @SuppressWarnings("unchecked")
     public void fetchStandings() {
-        // Redundant with fetchOfficialStandings, but kept for controller compatibility
         fetchOfficialStandings();
     }
 
@@ -215,13 +245,10 @@ public class ExternalApiService {
                         List<Map<String, Object>> scorers = (List<Map<String, Object>>) response.get("result");
                         for (Map<String, Object> sData : scorers) {
                             String playerName = (String) sData.get("player_name");
-
-                            // Find player in database and update their real stats
                             playerRepo.findAll().stream()
                                     .filter(p -> p.getName().equalsIgnoreCase(playerName))
                                     .findFirst()
                                     .ifPresent(p -> {
-                                        // Map real API goals and assists
                                         p.setGoals(Integer.parseInt(String.valueOf(sData.get("goals"))));
                                         Object assistsObj = sData.get("assists");
                                         p.setAssists(assistsObj != null ? Integer.parseInt(String.valueOf(assistsObj)) : 0);
