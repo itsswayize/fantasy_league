@@ -7,9 +7,11 @@ import com.example.fantasyleague.repository.TeamRepository;
 import com.example.fantasyleague.service.ExternalApiService;
 import com.example.fantasyleague.service.FixtureGenerator;
 import com.example.fantasyleague.service.LeagueService;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/league")
@@ -41,9 +43,9 @@ public class LeagueController {
     }
 
     @PostMapping("/generate-fixtures")
-    public String generate() {
+    public ResponseEntity<Map<String, String>> generate() {
         fixtureGenerator.generateSeason();
-        return "Fixtures Generated!";
+        return ResponseEntity.ok(Map.of("message", "Fixtures Generated!"));
     }
 
     @GetMapping("/standings")
@@ -59,15 +61,8 @@ public class LeagueController {
     }
 
     @PostMapping("/sync-teams")
-    public String syncTeams() {
-        // Ensure you have injected ExternalApiService in the constructor
+    public ResponseEntity<Map<String, String>> syncTeams() {
         externalApiService.fetchTeamsFromApi();
-        return "Teams synced from AllSportsAPI!";
-    }
-
-    @GetMapping("/test-api")
-    public String testApi() {
-        externalApiService.testApiWithDifferentCalls();
-        return "API tests triggered! Check your Spring Boot console logs for results.";
+        return ResponseEntity.ok(Map.of("message", "Sync started. Check console for completion."));
     }
 }
