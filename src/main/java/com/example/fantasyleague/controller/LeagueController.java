@@ -64,4 +64,10 @@ public class LeagueController {
         externalApiService.fetchTeamsFromApi();
         return "Teams synced from AllSportsAPI!";
     }
+
+    @GetMapping("/test-api")
+    public String testApi() {
+        externalApiService.testApiWithDifferentCalls();
+        return "API tests triggered! Check your Spring Boot console logs for results.";
+    }
 }
