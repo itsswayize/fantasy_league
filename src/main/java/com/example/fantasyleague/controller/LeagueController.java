@@ -122,4 +122,10 @@ public class LeagueController {
         externalApiService.fetchTopScorers();
         return ResponseEntity.ok(Map.of("message", "Top Scorers sync started"));
     }
+
+    @PostMapping("/switch-league/{id}")
+    public ResponseEntity<Map<String, String>> switchLeague(@PathVariable String id) {
+        externalApiService.setTeamString(id);
+        return ResponseEntity.ok(Map.of("message", "League context switched to: " + id));
+    }
 }

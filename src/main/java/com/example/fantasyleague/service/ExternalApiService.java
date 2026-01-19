@@ -2,6 +2,7 @@ package com.example.fantasyleague.service;
 
 import com.example.fantasyleague.model.*;
 import com.example.fantasyleague.repository.*;
+import org.springframework.beans.factory.annotation.Value; // Added import
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -13,16 +14,21 @@ import java.util.Map;
 @Service
 public class ExternalApiService {
 
+    private String teamString; // Dynamically set via constructor
     private final WebClient webClient;
     private final TeamRepository teamRepo;
     private final PlayerRepository playerRepo;
     private final FixtureRepository fixtureRepo;
+
     private final String API_KEY = "bbfc07db7f5af22ba9f700d9e9fceffef32736bb4b9f77bcfdddd88264a02f5a";
 
-    public ExternalApiService(WebClient.Builder builder,
+    // Constructor using @Value to inject fpl.league.id from application.properties
+    public ExternalApiService(@Value("${fpl.league.id:152}") String teamString,
+                              WebClient.Builder builder,
                               TeamRepository teamRepo,
                               PlayerRepository playerRepo,
                               FixtureRepository fixtureRepo) {
+        this.teamString = teamString;
         this.webClient = builder
                 .baseUrl("https://apiv2.allsportsapi.com/football/")
                 .exchangeStrategies(ExchangeStrategies.builder()
@@ -32,6 +38,13 @@ public class ExternalApiService {
         this.teamRepo = teamRepo;
         this.playerRepo = playerRepo;
         this.fixtureRepo = fixtureRepo;
+    }
+
+    /**
+     * Set the teamString at runtime if needed.
+     */
+    public void setTeamString(String teamString) {
+        this.teamString = teamString;
     }
 
     private Team findTeamLoosely(String apiName) {
@@ -51,12 +64,12 @@ public class ExternalApiService {
                 .uri(uriBuilder -> uriBuilder
                         .path("/")
                         .queryParam("met", "Teams")
-                        .queryParam("leagueId", "152")
+                        .queryParam("leagueId", teamString) // Uses injected teamString
                         .queryParam("APIkey", API_KEY)
                         .build())
                 .retrieve()
                 .bodyToMono(Map.class)
-                .retry(3) // Stabilize connection for large player/image datasets
+                .retry(3)
                 .subscribe(response -> {
                     if (response != null && response.get("result") != null) {
                         List<Map<String, Object>> teams = (List<Map<String, Object>>) response.get("result");
@@ -83,17 +96,14 @@ public class ExternalApiService {
                                     p.setImageUrl((String) pData.get("player_image"));
                                     p.setTeam(team);
 
-                                    // FIX: Map "player_injured" status from JSON
                                     String isInjured = (String) pData.get("player_injured");
                                     p.setInjured("Yes".equalsIgnoreCase(isInjured));
 
                                     if (p.isInjured()) {
-                                        // Check if the standalone API provided a reason previously, otherwise use a professional default
                                         if (p.getInjuryType() == null || p.getInjuryType().equals("Unavailable")) {
                                             p.setInjuryType("Match Fitness / Assessment");
                                         }
                                     }
-
                                     playerRepo.save(p);
                                 }
                             }
@@ -109,7 +119,7 @@ public class ExternalApiService {
                 .uri(uriBuilder -> uriBuilder
                         .path("/")
                         .queryParam("met", "Standings")
-                        .queryParam("leagueId", "152")
+                        .queryParam("leagueId", teamString) // Uses injected teamString
                         .queryParam("APIkey", API_KEY)
                         .build())
                 .retrieve()
@@ -146,7 +156,7 @@ public class ExternalApiService {
                 .uri(uriBuilder -> uriBuilder
                         .path("/")
                         .queryParam("met", "Fixtures")
-                        .queryParam("leagueId", "152")
+                        .queryParam("leagueId", teamString) // Uses injected teamString
                         .queryParam("from", fromDate)
                         .queryParam("to", toDate)
                         .queryParam("APIkey", API_KEY)
@@ -185,23 +195,20 @@ public class ExternalApiService {
                 .uri(uriBuilder -> uriBuilder
                         .path("/")
                         .queryParam("met", "Injuries")
-                        .queryParam("leagueId", "152")
+                        .queryParam("leagueId", teamString) // Uses injected teamString
                         .queryParam("APIkey", API_KEY)
                         .build())
                 .retrieve()
                 .bodyToMono(Map.class)
-                .retry(3) // Automatically retry 3 times if a 500 error occurs
+                .retry(3)
                 .subscribe(response -> {
                     if (response != null && response.get("result") != null) {
                         List<Map<String, Object>> result = (List<Map<String, Object>>) response.get("result");
-
-                        // Reset all players to healthy first
                         playerRepo.findAll().forEach(p -> {
                             p.setInjured(false);
                             p.setInjuryType(null);
                             playerRepo.save(p);
                         });
-
                         for (Map<String, Object> iData : result) {
                             String apiPlayerName = (String) iData.get("player_name");
                             playerRepo.findAll().stream()
@@ -224,12 +231,12 @@ public class ExternalApiService {
                 .uri(uriBuilder -> uriBuilder
                         .path("/")
                         .queryParam("met", "Topscorers")
-                        .queryParam("leagueId", "152")
+                        .queryParam("leagueId", teamString) // Uses injected teamString
                         .queryParam("APIkey", API_KEY)
                         .build())
                 .retrieve()
                 .bodyToMono(Map.class)
-                .retry(3) // Retry logic to ensure player stats are populated
+                .retry(3)
                 .subscribe(response -> {
                     if (response != null && response.get("result") != null) {
                         List<Map<String, Object>> scorers = (List<Map<String, Object>>) response.get("result");
