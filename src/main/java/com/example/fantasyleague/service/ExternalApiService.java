@@ -34,9 +34,6 @@ public class ExternalApiService {
         this.fixtureRepo = fixtureRepo;
     }
 
-    /**
-     * Helper method to find teams using loose matching for variants like "Manchester Utd" or "Wolves".
-     */
     private Team findTeamLoosely(String apiName) {
         return teamRepo.findAll().stream()
                 .filter(t -> t.getName().equalsIgnoreCase(apiName) ||
@@ -59,10 +56,10 @@ public class ExternalApiService {
                         .build())
                 .retrieve()
                 .bodyToMono(Map.class)
+                .retry(3) // Stabilize connection for large player/image datasets
                 .subscribe(response -> {
                     if (response != null && response.get("result") != null) {
                         List<Map<String, Object>> teams = (List<Map<String, Object>>) response.get("result");
-
                         for (Map<String, Object> teamData : teams) {
                             String teamName = (String) teamData.get("team_name");
                             Team team = findTeamLoosely(teamName);
@@ -71,8 +68,6 @@ public class ExternalApiService {
                                 team.setName(teamName);
                             }
                             team.setLogoUrl((String) teamData.get("team_logo"));
-                            team.setAttackRating((int) (Math.random() * 30) + 65);
-                            team.setDefenseRating((int) (Math.random() * 30) + 65);
                             teamRepo.save(team);
 
                             if (teamData.containsKey("players")) {
@@ -82,16 +77,30 @@ public class ExternalApiService {
                                     Player p = playerRepo.findAll().stream()
                                             .filter(existing -> existing.getName().equals(playerName))
                                             .findFirst().orElse(new Player());
+
                                     p.setName(playerName);
                                     p.setPosition((String) pData.get("player_type"));
                                     p.setImageUrl((String) pData.get("player_image"));
                                     p.setTeam(team);
+
+                                    // FIX: Map "player_injured" status from JSON
+                                    String isInjured = (String) pData.get("player_injured");
+                                    p.setInjured("Yes".equalsIgnoreCase(isInjured));
+
+                                    if (p.isInjured()) {
+                                        // Check if the standalone API provided a reason previously, otherwise use a professional default
+                                        if (p.getInjuryType() == null || p.getInjuryType().equals("Unavailable")) {
+                                            p.setInjuryType("Match Fitness / Assessment");
+                                        }
+                                    }
+
                                     playerRepo.save(p);
                                 }
                             }
                         }
+                        System.out.println("Teams, Players, and Injury statuses synced successfully.");
                     }
-                });
+                }, error -> System.err.println("Persistent Error fetching teams: " + error.getMessage()));
     }
 
     @SuppressWarnings("unchecked")
@@ -109,13 +118,10 @@ public class ExternalApiService {
                     if (response != null && response.get("result") != null) {
                         Map<String, Object> result = (Map<String, Object>) response.get("result");
                         List<Map<String, Object>> standings = (List<Map<String, Object>>) result.get("total");
-
                         for (Map<String, Object> sData : standings) {
-                            // Stage 6 is professional PL
                             if (String.valueOf(sData.get("fk_stage_key")).equals("6")) {
                                 String apiTeamName = (String) sData.get("standing_team");
                                 Team team = findTeamLoosely(apiTeamName);
-
                                 if (team != null) {
                                     team.setPoints(Integer.parseInt(String.valueOf(sData.get("standing_PTS"))));
                                     team.setMatchesPlayed(Integer.parseInt(String.valueOf(sData.get("standing_P"))));
@@ -129,9 +135,9 @@ public class ExternalApiService {
                                 }
                             }
                         }
-                        System.out.println("Official Premier League Standings (Stage 6) Synced Successfully.");
+                        System.out.println("Official Standings Synced.");
                     }
-                });
+                }, error -> System.err.println("Error syncing standings: " + error.getMessage()));
     }
 
     @SuppressWarnings("unchecked")
@@ -150,49 +156,27 @@ public class ExternalApiService {
                 .subscribe(response -> {
                     if (response != null && response.get("result") != null) {
                         List<Map<String, Object>> fixtures = (List<Map<String, Object>>) response.get("result");
-
                         for (Map<String, Object> fData : fixtures) {
-                            // FIX: Use the unique API event key to prevent duplicates
                             Long eventKey = Long.parseLong(String.valueOf(fData.get("event_key")));
-
-                            // Check if fixture already exists in database by ID
-                            // This causes fixtureRepo.save() to UPDATE instead of INSERT
                             Fixture f = fixtureRepo.findById(eventKey).orElse(new Fixture());
+                            if (f.getId() == null) f.setId(eventKey);
 
-                            if (f.getId() == null) {
-                                f.setId(eventKey); // Set the ID to match the eventKey for new entries
-                            }
-
-                            // Use loose matching to find correct teams in DB
                             f.setHomeTeam(findTeamLoosely((String) fData.get("event_home_team")));
                             f.setAwayTeam(findTeamLoosely((String) fData.get("event_away_team")));
-
-                            // Set the real date from the API
                             f.setMatchDate(LocalDate.parse((String) fData.get("event_date")));
 
-                            // Parse the final score result (e.g., "1 - 2")
                             String finalResult = String.valueOf(fData.get("event_final_result"));
                             if (finalResult != null && finalResult.contains(" - ")) {
                                 String[] scores = finalResult.split(" - ");
-                                try {
-                                    f.setHomeScore(Integer.parseInt(scores[0].trim()));
-                                    f.setAwayScore(Integer.parseInt(scores[1].trim()));
-                                } catch (NumberFormatException e) {
-                                    f.setHomeScore(0);
-                                    f.setAwayScore(0);
-                                }
+                                f.setHomeScore(Integer.parseInt(scores[0].trim()));
+                                f.setAwayScore(Integer.parseInt(scores[1].trim()));
                             }
-
                             f.setPlayed("Finished".equals(fData.get("event_status")));
-
-                            // Only save if both teams were successfully mapped to your DB
-                            if (f.getHomeTeam() != null && f.getAwayTeam() != null) {
-                                fixtureRepo.save(f);
-                            }
+                            if (f.getHomeTeam() != null && f.getAwayTeam() != null) fixtureRepo.save(f);
                         }
-                        System.out.println("Fixtures for " + fromDate + " to " + toDate + " synced and unique.");
+                        System.out.println("Fixtures synced unique for dates: " + fromDate + " to " + toDate);
                     }
-                });
+                }, error -> System.err.println("Error fetching fixtures: " + error.getMessage()));
     }
 
     @SuppressWarnings("unchecked")
@@ -206,14 +190,23 @@ public class ExternalApiService {
                         .build())
                 .retrieve()
                 .bodyToMono(Map.class)
+                .retry(3) // Automatically retry 3 times if a 500 error occurs
                 .subscribe(response -> {
                     if (response != null && response.get("result") != null) {
                         List<Map<String, Object>> result = (List<Map<String, Object>>) response.get("result");
-                        playerRepo.findAll().forEach(p -> p.setInjured(false));
+
+                        // Reset all players to healthy first
+                        playerRepo.findAll().forEach(p -> {
+                            p.setInjured(false);
+                            p.setInjuryType(null);
+                            playerRepo.save(p);
+                        });
+
                         for (Map<String, Object> iData : result) {
-                            String pName = (String) iData.get("player_name");
+                            String apiPlayerName = (String) iData.get("player_name");
                             playerRepo.findAll().stream()
-                                    .filter(p -> p.getName().equalsIgnoreCase(pName))
+                                    .filter(p -> p.getName().toLowerCase().contains(apiPlayerName.toLowerCase()) ||
+                                            apiPlayerName.toLowerCase().contains(p.getName().toLowerCase()))
                                     .findFirst()
                                     .ifPresent(p -> {
                                         p.setInjured(true);
@@ -222,11 +215,7 @@ public class ExternalApiService {
                                     });
                         }
                     }
-                });
-    }
-
-    public void fetchStandings() {
-        fetchOfficialStandings();
+                }, error -> System.err.println("Persistent API Error for injuries: " + error.getMessage()));
     }
 
     @SuppressWarnings("unchecked")
@@ -240,6 +229,7 @@ public class ExternalApiService {
                         .build())
                 .retrieve()
                 .bodyToMono(Map.class)
+                .retry(3) // Retry logic to ensure player stats are populated
                 .subscribe(response -> {
                     if (response != null && response.get("result") != null) {
                         List<Map<String, Object>> scorers = (List<Map<String, Object>>) response.get("result");
@@ -256,6 +246,10 @@ public class ExternalApiService {
                                     });
                         }
                     }
-                });
+                }, error -> System.err.println("Error fetching top scorers: " + error.getMessage()));
+    }
+
+    public void fetchStandings() {
+        fetchOfficialStandings();
     }
 }
