@@ -1,0 +1,65 @@
+<div class="container">
+  <div class="row g-4">
+    <div class="col-md-6">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-dark text-white py-3">
+          <h6 class="m-0 fw-bold"><i class="bi bi-fire me-2 text-warning"></i>TOP SCORERS</h6>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead>
+              <tr class="small text-muted text-uppercase">
+                <th class="ps-3">Player</th>
+                <th>Club</th>
+                <th class="text-center">Goals</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let player of topScorers">
+                <td class="ps-3">
+                  <div class="d-flex align-items-center">
+                    <img [src]="player.imageUrl || 'assets/default-player.png'" width="30" class="rounded-circle me-2">
+                    <span class="fw-bold small">{{ player.name }}</span>
+                  </div>
+                </td>
+                <td class="small text-muted">{{ player.teamName }}</td>
+                <td class="text-center fw-bold text-primary">{{ player.goals }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-6">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-primary text-white py-3">
+          <h6 class="m-0 fw-bold"><i class="bi bi-magic me-2"></i>TOP ASSISTS</h6>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead>
+              <tr class="small text-muted text-uppercase">
+                <th class="ps-3">Player</th>
+                <th>Club</th>
+                <th class="text-center">Assists</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let player of topAssists">
+                <td class="ps-3">
+                  <div class="d-flex align-items-center">
+                    <img [src]="player.imageUrl || 'assets/default-player.png'" width="30" class="rounded-circle me-2">
+                    <span class="fw-bold small">{{ player.name }}</span>
+                  </div>
+                </td>
+                <td class="small text-muted">{{ player.teamName }}</td>
+                <td class="text-center fw-bold text-success">{{ player.assists }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

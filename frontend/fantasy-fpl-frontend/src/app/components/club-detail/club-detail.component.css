@@ -1,0 +1,27 @@
+.nav-tabs .nav-link {
+    color: #6c757d;
+    background: none;
+    border-bottom: 3px solid transparent !important;
+}
+
+.nav-tabs .nav-link.active {
+    color: var(--bs-primary);
+    border-bottom: 3px solid var(--bs-primary) !important;
+}
+
+.player-card {
+    transition: transform 0.2s;
+}
+
+.player-card:hover {
+    transform: translateX(5px);
+    border-left: 4px solid var(--bs-primary) !important;
+}
+
+.extra-small {
+    font-size: 0.7rem;
+}
+
+.ls-wide {
+    letter-spacing: 2px;
+}

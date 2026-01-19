@@ -1,0 +1,46 @@
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="fw-bold m-0 text-white">Player Injuries</h3>
+    <span class="badge bg-danger">Premier League</span>
+  </div>
+
+  <div class="row">
+    <div class="col-12" *ngIf="groupedInjuries.length === 0">
+      <div class="alert alert-info border-0 shadow-sm">
+        No injury data found. Please ensure you have synced the API.
+      </div>
+    </div>
+
+    <div class="col-md-6 col-lg-4 mb-4" *ngFor="let group of groupedInjuries">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-white py-3 border-bottom">
+          <h6 class="m-0 fw-bold text-primary text-uppercase">{{ group.clubName }}</h6>
+        </div>
+        <div class="card-body p-0">
+          <ul class="list-group list-group-flush">
+            <li class="list-group-item py-3" *ngFor="let player of group.players">
+              <div class="d-flex align-items-center">
+                <div class="shrink-0">
+                  <img [src]="player.imageUrl || 'assets/default-player.png'" 
+                       (error)="player.imageUrl = 'assets/default-player.png'"
+                       class="rounded-circle border bg-light" width="40" height="40"
+                       style="object-fit: cover;">
+                </div>
+                
+                <div class="ms-3">
+                  <div class="fw-bold small text-dark">{{ player.name }}</div>
+                  
+                  <span class="badge bg-danger-subtle text-danger extra-small mt-1 fw-bold text-uppercase">
+                    {{ player.injuryType === 'Match Fitness / Assessment' ? 'INJURED' : (player.injuryType || 'INJURED') }}
+                  </span>
+                  
+                  <div class="text-muted extra-small text-uppercase mt-1">{{ player.position }}</div>
+                </div>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

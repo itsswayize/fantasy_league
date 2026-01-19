@@ -1,0 +1,30 @@
+@import "bootstrap/dist/css/bootstrap.min.css";
+
+:root {
+  --fpl-purple: #37003c;
+  --fpl-green: #00ff85;
+  --fpl-pink: #e90052;
+  --fpl-bg: #f3f3f3;
+}
+
+body {
+  background-color: var(--fpl-bg);
+  font-family: 'Inter', sans-serif;
+}
+
+.fpl-header {
+  background: var(--fpl-purple);
+  color: white;
+  border-bottom: 4px solid var(--fpl-pink);
+}
+
+.fpl-card {
+  border: none;
+  border-radius: 0;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.fpl-table-header {
+  background-color: var(--fpl-purple) !important;
+  color: white;
+}

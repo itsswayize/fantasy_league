@@ -1,0 +1,89 @@
+.container {
+  max-width: 1140px;
+}
+
+/* Base Card Styling for the Dark Theme */
+.card {
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 20px;
+  background-color: rgba(255, 255, 255, 0.05); /* Slight transparency */
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.table th {
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 1px;
+}
+
+.badge {
+  font-size: 0.9rem;
+}
+
+.border-bottom:last-child {
+  border-bottom: none !important;
+}
+
+.navbar {
+  z-index: 1050; /* Ensure navbar stays on top */
+}
+
+.fpl-header {
+  position: relative;
+  z-index: 1040;
+}
+
+/* Theme Background Configuration */
+:host {
+  display: block;
+  background-color: #41054b !important; /* Main Theme Purple */
+  min-height: 100vh;
+}
+
+main {
+  background-color: #41054b !important; /* Overwrites existing light classes */
+  min-height: 100vh;
+}
+
+/* Typography and Contrast Fixes */
+/* Force all main page headers to be white */
+h3, h4, .navbar-brand, .nav-link {
+    color: #ffffff !important;
+}
+
+.text-muted {
+    color: rgba(255, 255, 255, 0.7) !important; /* Lighten muted text for dark bg */
+}
+
+/* Alert Box Styling (e.g., No Injuries Found) */
+.alert-info {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    color: #ffffff !important;
+}
+
+/* Specific Fixes for White Cards (Injuries/Clubs) */
+.card-header {
+    background-color: rgba(0, 0, 0, 0.2) !important;
+    color: white !important;
+}
+
+/* Ensure names inside white card components remain readable */
+.card-header h6 {
+    color: #ffffff !important; 
+}
+
+/* Fix for components that still use white list backgrounds */
+.list-group-item .fw-bold.small {
+    color: #212529 !important; /* Keep player names dark on white backgrounds */
+}
+
+.navbar-toggler {
+    border-color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.navbar-toggler-icon {
+    filter: invert(1); /* Makes the black icon white */
+}

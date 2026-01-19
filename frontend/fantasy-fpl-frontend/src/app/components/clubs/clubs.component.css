@@ -1,0 +1,33 @@
+.club-card {
+    cursor: pointer;
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+
+.club-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 1rem 3rem rgba(0,0,0,.175) !important;
+}
+
+.club-logo {
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
+}
+
+.ls-wide {
+    letter-spacing: 1px;
+}
+
+.extra-small {
+    font-size: 0.65rem;
+}
+
+.card-footer {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.3s ease;
+}
+
+.club-card:hover .card-footer {
+    opacity: 1;
+    transform: translateY(0);
+}

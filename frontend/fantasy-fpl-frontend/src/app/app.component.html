@@ -1,0 +1,39 @@
+<header class="fpl-header py-3 shadow bg-primary text-white">
+  <div class="container d-flex justify-content-between align-items-center">
+    <h2 class="m-0 fw-bold">Fantasy League</h2>
+    <div class="d-flex align-items-center">
+      <span class="badge bg-dark rounded-pill px-3">Live API Feed</span>
+    </div>
+  </div>
+</header>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm sticky-top">
+  <div class="container">
+    <a class="navbar-brand fw-bold" routerLink="/">FPL PRO</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav me-auto">
+        <li class="nav-item">
+          <a class="nav-link" routerLink="/matches" routerLinkActive="active">Matches</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" routerLink="/table" routerLinkActive="active">Table</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" routerLink="/injuries" routerLinkActive="active">Injuries</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" routerLink="/clubs" routerLinkActive="active">Clubs</a>
+        </li>
+      </ul>
+      <div class="d-flex align-items-center">
+        <span class="text-white-50 small">Premier League</span>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<main class="py-4 min-vh-100"> <router-outlet></router-outlet>
+</main>

@@ -1,39 +1,23 @@
-target/
-!.mvn/wrapper/maven-wrapper.jar
-!**/src/main/**/target/
-!**/src/test/**/target/
+# --- Backend (Java/Maven) ---
+backend/target/
+backend/.idea/
+backend/*.iml
+backend/*.iws
+backend/*.ipr
 .kotlin
 
-### IntelliJ IDEA ###
-.idea/modules.xml
-.idea/jarRepositories.xml
-.idea/compiler.xml
-.idea/libraries/
-*.iws
-*.iml
-*.ipr
+# --- Frontend (Angular) ---
+frontend/fantasy-fpl-frontend/node_modules/
+frontend/fantasy-fpl-frontend/dist/
+frontend/fantasy-fpl-frontend/.angular/cache/
+frontend/fantasy-fpl-frontend/tmp/
+frontend/fantasy-fpl-frontend/out-tsc/
 
-### Eclipse ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
-
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
-
-### VS Code ###
+# --- IDEs and System ---
+.idea/
 .vscode/
-
-### Mac OS ###
 .DS_Store
+Thumbs.db
+
+# --- Maven Wrapper ---
+!backend/.mvn/wrapper/maven-wrapper.jar

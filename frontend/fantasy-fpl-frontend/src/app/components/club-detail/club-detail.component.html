@@ -1,0 +1,84 @@
+<div class="container py-4" *ngIf="club; else loading">
+  <div class="card border-0 shadow-sm mb-4 overflow-hidden">
+    <div class="card-body bg-dark text-white py-4">
+      <div class="d-flex align-items-center">
+        <img [src]="club.logoUrl || 'assets/default-logo.png'" 
+             width="100" height="100" 
+             class="me-4 shadow-sm rounded p-2 bg-white object-fit-contain" 
+             alt="{{ club.name }}">
+        <div>
+          <h1 class="fw-bold mb-0 text-uppercase">{{ club.name }}</h1>
+          <p class="text-white-50 mb-0 ls-wide small">PREMIER LEAGUE | CLUB HUB</p>
+        </div>
+      </div>
+    </div>
+    
+    <div class="card-footer bg-white p-0">
+      <ul class="nav nav-tabs border-0">
+        <li class="nav-item">
+          <button class="nav-link px-4 py-3 fw-bold border-0 rounded-0" 
+                  [class.active]="activeTab === 'squad'" 
+                  (click)="setTab('squad')">SQUAD</button>
+        </li>
+        <li class="nav-item">
+          <button class="nav-link px-4 py-3 fw-bold border-0 rounded-0" 
+                  [class.active]="activeTab === 'matches'" 
+                  (click)="setTab('matches')">MATCHES</button>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <div *ngIf="activeTab === 'squad'" class="row g-3">
+    <div class="col-md-6 col-lg-4" *ngFor="let player of club.squad">
+      <div class="card border-0 shadow-sm h-100 player-card">
+        <div class="card-body d-flex align-items-center">
+          <img [src]="player.imageUrl || 'assets/default-player.png'" 
+     (error)="player.imageUrl = 'assets/default-player.png'"
+     class="rounded-circle border bg-light" width="40" height="40"
+     style="object-fit: cover;">
+          <div>
+            <div class="fw-bold text-dark">{{ player.name }}</div>
+            <div class="small text-muted text-uppercase fw-semibold" style="font-size: 0.7rem;">{{ player.position }}</div>
+            <span *ngIf="player.injured" class="badge bg-danger-subtle text-danger extra-small mt-1">INJURED</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="activeTab === 'matches'">
+    <div class="card border-0 shadow-sm">
+      <div class="list-group list-group-flush">
+        <div class="list-group-item py-4 border-bottom" *ngFor="let fixture of fixtures">
+          <div class="row align-items-center text-center">
+            <div class="col-4 fw-bold" [class.text-primary]="fixture.homeTeam.id === club.id">
+              {{ fixture.homeTeam.name }}
+            </div>
+            <div class="col-2">
+              <img [src]="fixture.homeTeam.logoUrl" width="30" alt="">
+            </div>
+            <div class="col-2">
+              <span class="badge bg-dark px-3 py-2 fs-6">
+                {{ fixture.played ? fixture.homeScore + ' - ' + fixture.awayScore : (fixture.matchDate | date:'HH:mm') }}
+              </span>
+            </div>
+            <div class="col-2">
+              <img [src]="fixture.awayTeam.logoUrl" width="30" alt="">
+            </div>
+            <div class="col-2 fw-bold" [class.text-primary]="fixture.awayTeam.id === club.id">
+              {{ fixture.awayTeam.name }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<ng-template #loading>
+  <div class="container text-center py-5">
+    <div class="spinner-border text-primary"></div>
+    <p class="mt-2 text-muted text-uppercase small">Loading Club Data...</p>
+  </div>
+</ng-template>

@@ -1,0 +1,12 @@
+.card-header {
+    background-color: #37003c !important; /* PL Purple */
+    color: white !important;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(55, 0, 60, 0.05);
+}
+
+.text-primary {
+    color: #37003c !important;
+}
