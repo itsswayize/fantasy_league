@@ -4,6 +4,7 @@ import com.example.fantasyleague.model.Fixture;
 import com.example.fantasyleague.model.Team;
 import com.example.fantasyleague.repository.FixtureRepository;
 import com.example.fantasyleague.repository.TeamRepository;
+import com.example.fantasyleague.service.ExternalApiService;
 import com.example.fantasyleague.service.FixtureGenerator;
 import com.example.fantasyleague.service.LeagueService;
 import org.springframework.web.bind.annotation.*;
@@ -12,23 +13,28 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/league")
-@CrossOrigin(origins = "http://localhost:4200") // Allows Angular to connect
+@CrossOrigin(origins = "http://localhost:4200")
 public class LeagueController {
 
     private final LeagueService leagueService;
     private final TeamRepository teamRepo;
     private final FixtureRepository fixtureRepo;
     private final FixtureGenerator fixtureGenerator;
+    // 1. Declare the variable here
+    private final ExternalApiService externalApiService; // Add this field
 
-
-    public LeagueController(LeagueService leagueService, TeamRepository teamRepo, FixtureRepository fixtureRepo, FixtureGenerator fixtureGenerator) {
+    public LeagueController(LeagueService leagueService,
+                            TeamRepository teamRepo,
+                            FixtureRepository fixtureRepo,
+                            FixtureGenerator fixtureGenerator,
+                            ExternalApiService externalApiService) { // Add this parameter
         this.leagueService = leagueService;
         this.teamRepo = teamRepo;
         this.fixtureRepo = fixtureRepo;
         this.fixtureGenerator = fixtureGenerator;
+        this.externalApiService = externalApiService; // Assign it
     }
 
-    // Trigger daily simulation
     @PostMapping("/simulate")
     public void simulateToday() {
         leagueService.simulateTodayMatches();
@@ -40,7 +46,6 @@ public class LeagueController {
         return "Fixtures Generated!";
     }
 
-    // Get the standings (League Table) sorted by points
     @GetMapping("/standings")
     public List<Team> getStandings() {
         return teamRepo.findAll().stream()
@@ -48,9 +53,15 @@ public class LeagueController {
                 .toList();
     }
 
-    // Get all fixtures to show results
     @GetMapping("/fixtures")
     public List<Fixture> getFixtures() {
         return fixtureRepo.findAll();
+    }
+
+    @PostMapping("/sync-teams")
+    public String syncTeams() {
+        // Ensure you have injected ExternalApiService in the constructor
+        externalApiService.fetchTeamsFromApi();
+        return "Teams synced from AllSportsAPI!";
     }
 }
