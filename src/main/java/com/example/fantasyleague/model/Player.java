@@ -1,6 +1,6 @@
 package com.example.fantasyleague.model;
 
-import com.fasterxml.jackson.annotation.JsonIgnore; // Add this import
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -18,8 +18,12 @@ public class Player {
     private boolean injured;
     private String injuryType;
 
+    // Add these two fields to enable setGoals and setAssists
+    private int goals;
+    private int assists;
+
     @ManyToOne
     @JoinColumn(name = "team_id")
-    @JsonIgnore // This stops the infinite loop
+    @JsonIgnore
     private Team team;
 }

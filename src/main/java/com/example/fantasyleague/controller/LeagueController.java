@@ -23,19 +23,18 @@ public class LeagueController {
     private final TeamRepository teamRepo;
     private final FixtureRepository fixtureRepo;
     private final FixtureGenerator fixtureGenerator;
-    // 1. Declare the variable here
-    private final ExternalApiService externalApiService; // Add this field
+    private final ExternalApiService externalApiService;
 
     public LeagueController(LeagueService leagueService,
                             TeamRepository teamRepo,
                             FixtureRepository fixtureRepo,
                             FixtureGenerator fixtureGenerator,
-                            ExternalApiService externalApiService) { // Add this parameter
+                            ExternalApiService externalApiService) {
         this.leagueService = leagueService;
         this.teamRepo = teamRepo;
         this.fixtureRepo = fixtureRepo;
         this.fixtureGenerator = fixtureGenerator;
-        this.externalApiService = externalApiService; // Assign it
+        this.externalApiService = externalApiService;
     }
 
     @PostMapping("/simulate")
@@ -61,12 +60,6 @@ public class LeagueController {
         return fixtureRepo.findAll();
     }
 
-    @PostMapping("/sync-teams")
-    public ResponseEntity<Map<String, String>> syncTeams() {
-        externalApiService.fetchTeamsFromApi();
-        return ResponseEntity.ok(Map.of("message", "Sync started. Check console for completion."));
-    }
-
     @GetMapping("/clubs")
     public List<Team> getClubs() {
         return teamRepo.findAll().stream()
@@ -74,10 +67,9 @@ public class LeagueController {
                 .toList();
     }
 
-    @PostMapping("/sync-standings")
-    public ResponseEntity<Map<String, String>> syncStandings() {
-        externalApiService.fetchStandings();
-        return ResponseEntity.ok(Map.of("message", "Standings sync triggered"));
+    @GetMapping("/clubs/{id}")
+    public Team getClubDetails(@PathVariable Long id) {
+        return teamRepo.findById(id).orElseThrow();
     }
 
     @GetMapping("/clubs/{id}/squad")
@@ -86,16 +78,47 @@ public class LeagueController {
         return team.getSquad();
     }
 
-    @GetMapping("/clubs/{id}")
-    public Team getClubDetails(@PathVariable Long id) {
-        return teamRepo.findById(id).orElseThrow();
-    }
-
     @GetMapping("/clubs/{id}/fixtures")
     public List<Fixture> getClubFixtures(@PathVariable Long id) {
-        // Return fixtures where homeTeam.id or awayTeam.id matches the path variable
         return fixtureRepo.findAll().stream()
                 .filter(f -> f.getHomeTeam().getId().equals(id) || f.getAwayTeam().getId().equals(id))
                 .toList();
+    }
+
+    @PostMapping("/sync-teams")
+    public ResponseEntity<Map<String, String>> syncTeams() {
+        externalApiService.fetchTeamsFromApi();
+        return ResponseEntity.ok(Map.of("message", "Sync started."));
+    }
+
+    @PostMapping("/sync-standings")
+    public ResponseEntity<Void> syncStandings() {
+        // Priority: Always fetch official standings to populate Pl, W, D, L, GD, Pts
+        externalApiService.fetchOfficialStandings();
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/sync-real-fixtures")
+    public ResponseEntity<Map<String, String>> syncRealFixtures() {
+        externalApiService.fetchRealFixtures();
+        return ResponseEntity.ok(Map.of("message", "Real Fixtures sync started"));
+    }
+
+    @PostMapping("/sync-injuries")
+    public ResponseEntity<Map<String, String>> syncInjuries() {
+        externalApiService.fetchInjuries();
+        return ResponseEntity.ok(Map.of("message", "Injuries sync started"));
+    }
+
+    @PostMapping("/sync-official-standings")
+    public ResponseEntity<Map<String, String>> syncOfficialStandings() {
+        externalApiService.fetchOfficialStandings();
+        return ResponseEntity.ok(Map.of("message", "Official Standings sync started"));
+    }
+
+    @PostMapping("/sync-topscorers")
+    public ResponseEntity<Map<String, String>> syncTopScorers() {
+        externalApiService.fetchTopScorers();
+        return ResponseEntity.ok(Map.of("message", "Top Scorers sync started"));
     }
 }

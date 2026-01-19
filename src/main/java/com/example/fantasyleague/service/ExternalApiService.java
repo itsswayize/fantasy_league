@@ -1,7 +1,9 @@
 package com.example.fantasyleague.service;
 
+import com.example.fantasyleague.model.Fixture;
 import com.example.fantasyleague.model.Player;
 import com.example.fantasyleague.model.Team;
+import com.example.fantasyleague.repository.FixtureRepository;
 import com.example.fantasyleague.repository.PlayerRepository;
 import com.example.fantasyleague.repository.TeamRepository;
 import org.springframework.stereotype.Service;
@@ -15,20 +17,23 @@ public class ExternalApiService {
 
     private final WebClient webClient;
     private final TeamRepository teamRepo;
-    private final PlayerRepository playerRepo; // Added for players
+    private final PlayerRepository playerRepo;
+    private final FixtureRepository fixtureRepo;
     private final String API_KEY = "bbfc07db7f5af22ba9f700d9e9fceffef32736bb4b9f77bcfdddd88264a02f5a";
 
-    public ExternalApiService(WebClient.Builder builder, TeamRepository teamRepo, PlayerRepository playerRepo) {
+    public ExternalApiService(WebClient.Builder builder,
+                              TeamRepository teamRepo,
+                              PlayerRepository playerRepo,
+                              FixtureRepository fixtureRepo) {
         this.webClient = builder
                 .baseUrl("https://apiv2.allsportsapi.com/football/")
                 .exchangeStrategies(ExchangeStrategies.builder()
-                        .codecs(configurer -> configurer
-                                .defaultCodecs()
-                                .maxInMemorySize(16 * 1024 * 1024))
+                        .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(16 * 1024 * 1024))
                         .build())
                 .build();
         this.teamRepo = teamRepo;
         this.playerRepo = playerRepo;
+        this.fixtureRepo = fixtureRepo;
     }
 
     @SuppressWarnings("unchecked")
@@ -37,7 +42,7 @@ public class ExternalApiService {
                 .uri(uriBuilder -> uriBuilder
                         .path("/")
                         .queryParam("met", "Teams")
-                        .queryParam("leagueId", "152") // Premier League
+                        .queryParam("leagueId", "152")
                         .queryParam("APIkey", API_KEY)
                         .build())
                 .retrieve()
@@ -48,28 +53,23 @@ public class ExternalApiService {
 
                         for (Map<String, Object> teamData : teams) {
                             String teamName = (String) teamData.get("team_name");
+                            Team team = teamRepo.findByName(teamName);
+                            if (team == null) {
+                                team = new Team();
+                                team.setName(teamName);
+                            }
+                            team.setLogoUrl((String) teamData.get("team_logo"));
+                            team.setAttackRating((int) (Math.random() * 30) + 65);
+                            team.setDefenseRating((int) (Math.random() * 30) + 65);
+                            teamRepo.save(team);
 
-                            // Find existing team or create new one
-                            Team team = teamRepo.findAll().stream()
-                                    .filter(t -> t.getName().equals(teamName))
-                                    .findFirst()
-                                    .orElseGet(() -> {
-                                        Team newTeam = new Team();
-                                        newTeam.setName(teamName);
-                                        newTeam.setAttackRating((int) (Math.random() * 30) + 65);
-                                        newTeam.setDefenseRating((int) (Math.random() * 30) + 65);
-                                        newTeam.setPoints(0);
-                                        return teamRepo.save(newTeam);
-                                    });
-
-                            // Sync Players for this team
                             if (teamData.containsKey("players")) {
                                 List<Map<String, Object>> playersList = (List<Map<String, Object>>) teamData.get("players");
                                 for (Map<String, Object> pData : playersList) {
                                     String playerName = (String) pData.get("player_name");
-
-                                    // Basic check to avoid duplicate players
-                                    Player p = new Player();
+                                    Player p = playerRepo.findAll().stream()
+                                            .filter(existing -> existing.getName().equals(playerName))
+                                            .findFirst().orElse(new Player());
                                     p.setName(playerName);
                                     p.setPosition((String) pData.get("player_type"));
                                     p.setImageUrl((String) pData.get("player_image"));
@@ -78,19 +78,12 @@ public class ExternalApiService {
                                 }
                             }
                         }
-                        System.out.println("Sync Complete! Teams and Players imported.");
                     }
-                }, error -> {
-                    System.err.println("Sync Error: " + error.getMessage());
                 });
     }
 
-
-
-    // Inside ExternalApiService.java
-
     @SuppressWarnings("unchecked")
-    public void fetchStandings() {
+    public void fetchOfficialStandings() {
         this.webClient.get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/")
@@ -106,24 +99,71 @@ public class ExternalApiService {
                         List<Map<String, Object>> standings = (List<Map<String, Object>>) result.get("total");
 
                         for (Map<String, Object> sData : standings) {
-                            String teamName = (String) sData.get("standing_team");
-                            Team team = teamRepo.findByName(teamName); // Requires findByName in TeamRepository
-                            if (team != null) {
-                                team.setMatchesPlayed(Integer.parseInt((String) sData.get("standing_P")));
-                                team.setWins(Integer.parseInt((String) sData.get("standing_W")));
-                                team.setDraws(Integer.parseInt((String) sData.get("standing_D")));
-                                team.setLosses(Integer.parseInt((String) sData.get("standing_L")));
-                                team.setGoalsFor(Integer.parseInt((String) sData.get("standing_F")));
-                                team.setGoalsAgainst(Integer.parseInt((String) sData.get("standing_A")));
-                                team.setGoalDifference(Integer.parseInt((String) sData.get("standing_GD")));
-                                team.setPoints(Integer.parseInt((String) sData.get("standing_PTS")));
-                                teamRepo.save(team);
+                            // FIX: Only process data for the main Premier League stage (Stage 6)
+                            // This prevents Women's Championship data (Stage 978) from overwriting your teams
+                            if (String.valueOf(sData.get("fk_stage_key")).equals("6")) {
+                                String teamName = (String) sData.get("standing_team");
+                                Team team = teamRepo.findByName(teamName);
+
+                                if (team != null) {
+                                    // Map all real columns from the API to your database
+                                    team.setPoints(Integer.parseInt(String.valueOf(sData.get("standing_PTS"))));
+                                    team.setMatchesPlayed(Integer.parseInt(String.valueOf(sData.get("standing_P"))));
+                                    team.setWins(Integer.parseInt(String.valueOf(sData.get("standing_W"))));
+                                    team.setDraws(Integer.parseInt(String.valueOf(sData.get("standing_D"))));
+                                    team.setLosses(Integer.parseInt(String.valueOf(sData.get("standing_L"))));
+                                    team.setGoalsFor(Integer.parseInt(String.valueOf(sData.get("standing_F"))));
+                                    team.setGoalsAgainst(Integer.parseInt(String.valueOf(sData.get("standing_A"))));
+                                    team.setGoalDifference(Integer.parseInt(String.valueOf(sData.get("standing_GD"))));
+                                    teamRepo.save(team);
+                                }
                             }
+                        }
+                        System.out.println("Official Premier League Standings (Stage 6) Synced Successfully.");
+                    }
+                });
+    }
+
+    @SuppressWarnings("unchecked")
+    public void fetchRealFixtures() {
+        this.webClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/")
+                        .queryParam("met", "Fixtures")
+                        .queryParam("leagueId", "152")
+                        .queryParam("from", "2025-08-01")
+                        .queryParam("to", "2026-05-30")
+                        .queryParam("APIkey", API_KEY)
+                        .build())
+                .retrieve()
+                .bodyToMono(Map.class)
+                .subscribe(response -> {
+                    if (response != null && response.get("result") != null) {
+                        List<Map<String, Object>> fixtures = (List<Map<String, Object>>) response.get("result");
+                        for (Map<String, Object> fData : fixtures) {
+                            Fixture f = new Fixture();
+                            f.setHomeTeam(teamRepo.findByName((String) fData.get("event_home_team")));
+                            f.setAwayTeam(teamRepo.findByName((String) fData.get("event_away_team")));
+
+                            String finalResult = String.valueOf(fData.get("event_final_result"));
+                            if (finalResult != null && finalResult.contains(" - ")) {
+                                String[] scores = finalResult.split(" - ");
+                                try {
+                                    f.setHomeScore(Integer.parseInt(scores[0].trim()));
+                                    f.setAwayScore(Integer.parseInt(scores[1].trim()));
+                                } catch (NumberFormatException e) {
+                                    f.setHomeScore(0);
+                                    f.setAwayScore(0);
+                                }
+                            }
+                            f.setPlayed("Finished".equals(fData.get("event_status")));
+                            fixtureRepo.save(f);
                         }
                     }
                 });
     }
 
+    @SuppressWarnings("unchecked")
     public void fetchInjuries() {
         this.webClient.get()
                 .uri(uriBuilder -> uriBuilder
@@ -135,13 +175,28 @@ public class ExternalApiService {
                 .retrieve()
                 .bodyToMono(Map.class)
                 .subscribe(response -> {
-                    // Logic to save/update injuries to a new Injury entity
-                    System.out.println("Injuries synced.");
+                    if (response != null && response.get("result") != null) {
+                        List<Map<String, Object>> result = (List<Map<String, Object>>) response.get("result");
+                        playerRepo.findAll().forEach(p -> p.setInjured(false));
+                        for (Map<String, Object> iData : result) {
+                            String pName = (String) iData.get("player_name");
+                            playerRepo.findAll().stream()
+                                    .filter(p -> p.getName().equalsIgnoreCase(pName))
+                                    .findFirst()
+                                    .ifPresent(p -> {
+                                        p.setInjured(true);
+                                        p.setInjuryType((String) iData.get("injury_reason"));
+                                        playerRepo.save(p);
+                                    });
+                        }
+                    }
                 });
     }
 
-    public void fetchTeamSquad(String teamId) {
-        // met=Players&teamId=...
+    @SuppressWarnings("unchecked")
+    public void fetchStandings() {
+        // Redundant with fetchOfficialStandings, but kept for controller compatibility
+        fetchOfficialStandings();
     }
 
     @SuppressWarnings("unchecked")
@@ -159,12 +214,21 @@ public class ExternalApiService {
                     if (response != null && response.get("result") != null) {
                         List<Map<String, Object>> scorers = (List<Map<String, Object>>) response.get("result");
                         for (Map<String, Object> sData : scorers) {
-                            // Update existing player stats in your database
                             String playerName = (String) sData.get("player_name");
-                            // Add logic here to find player by name and update goals/assists
+
+                            // Find player in database and update their real stats
+                            playerRepo.findAll().stream()
+                                    .filter(p -> p.getName().equalsIgnoreCase(playerName))
+                                    .findFirst()
+                                    .ifPresent(p -> {
+                                        // Map real API goals and assists
+                                        p.setGoals(Integer.parseInt(String.valueOf(sData.get("goals"))));
+                                        Object assistsObj = sData.get("assists");
+                                        p.setAssists(assistsObj != null ? Integer.parseInt(String.valueOf(assistsObj)) : 0);
+                                        playerRepo.save(p);
+                                    });
                         }
                     }
                 });
     }
-
 }
