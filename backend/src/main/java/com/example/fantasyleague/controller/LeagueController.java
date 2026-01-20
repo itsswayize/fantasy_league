@@ -85,6 +85,11 @@ public class LeagueController {
                 .toList();
     }
 
+    @GetMapping("/health")
+    public String healthCheck() {
+        return "UP";
+    }
+
     @PostMapping("/sync-teams")
     public ResponseEntity<Map<String, String>> syncTeams() {
         externalApiService.fetchTeamsFromApi();
