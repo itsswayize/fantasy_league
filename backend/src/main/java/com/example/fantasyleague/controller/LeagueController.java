@@ -16,7 +16,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/league")
-@CrossOrigin(origins = "*") // Allow Vercel to connect to Render
+@CrossOrigin(origins = "*") // Allows Vercel to communicate with Render
 public class LeagueController {
 
     private final LeagueService leagueService;
@@ -37,6 +37,12 @@ public class LeagueController {
         this.externalApiService = externalApiService;
     }
 
+    @GetMapping("/health")
+    public String health() {
+        return "UP";
+    }
+
+    // FIXED: Only ONE /simulate endpoint
     @PostMapping("/simulate")
     public void simulateToday() {
         leagueService.simulateTodayMatches();
@@ -85,28 +91,16 @@ public class LeagueController {
                 .toList();
     }
 
-    @GetMapping("/health") // Health check for Render
-    public String health() {
-        return "UP";
-    }
-
     @PostMapping("/sync-teams")
     public String syncTeams() {
-        // Updated from apiService to externalApiService
         externalApiService.fetchTeamsFromApi();
         return "Sync process started in background...";
     }
 
     @PostMapping("/sync-standings")
     public ResponseEntity<Void> syncStandings() {
-        // Priority: Always fetch official standings to populate Pl, W, D, L, GD, Pts
         externalApiService.fetchOfficialStandings();
         return ResponseEntity.ok().build();
-    }
-
-    @PostMapping("/simulate")
-    public void simulate() {
-        leagueService.simulateTodayMatches();
     }
 
     @GetMapping("/fixtures/sync")
@@ -116,16 +110,11 @@ public class LeagueController {
         externalApiService.fetchRealFixtures(from, to);
         return ResponseEntity.ok(Map.of("message", "Syncing matches for: " + from + " to " + to));
     }
+
     @PostMapping("/sync-injuries")
     public ResponseEntity<Map<String, String>> syncInjuries() {
         externalApiService.fetchInjuries();
         return ResponseEntity.ok(Map.of("message", "Injuries sync started"));
-    }
-
-    @PostMapping("/sync-official-standings")
-    public ResponseEntity<Map<String, String>> syncOfficialStandings() {
-        externalApiService.fetchOfficialStandings();
-        return ResponseEntity.ok(Map.of("message", "Official Standings sync started"));
     }
 
     @PostMapping("/sync-topscorers")
