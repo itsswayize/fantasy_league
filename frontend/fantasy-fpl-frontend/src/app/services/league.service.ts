@@ -4,7 +4,7 @@ import { Observable, switchMap, delay } from 'rxjs';
 
 @Injectable({ providedIn: 'root' })
 export class LeagueService {
-  private apiUrl = 'http://localhost:8080/api/league';
+  private apiUrl = 'https://fpl-backend-xxxx.onrender.com/api/league';
 
   constructor(private http: HttpClient) { }
 
