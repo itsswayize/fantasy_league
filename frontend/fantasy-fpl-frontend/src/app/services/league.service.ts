@@ -15,8 +15,10 @@ export class LeagueService {
   }
 
   getFixtures(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.apiUrl}/fixtures`);
-  }
+    // Adding ?t= ensures you get fresh data from the server, not a cached version
+    const timestamp = new Date().getTime();
+    return this.http.get<any[]>(`${this.apiUrl}/fixtures?t=${timestamp}`);
+}
 
   getClubDetails(id: number): Observable<any> {
     return this.http.get<any>(`${this.apiUrl}/clubs/${id}`);

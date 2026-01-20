@@ -47,21 +47,13 @@ export class MatchesComponent implements OnInit {
   }
 
   loadCurrentWeek() {
-    this.loading = true;
-    const week = this.matchweeks[this.currentWeekIndex];
-
-    // 1. Sync from API for this specific date range
-    this.leagueService.getFixturesByDate(week.from, week.to).subscribe({
-      next: () => {
-        // 2. Load the synced data from local DB
-        this.loadLocalFixtures();
-      },
-      error: (err) => {
-        console.error('Sync failed', err);
-        this.loading = false;
-      }
-    });
-  }
+  this.loading = true;
+  // REMOVED: leagueService.getFixturesByDate() 
+  // This stops the backend from fetching and SAVING new duplicates every time you view the tab.
+  
+  // ONLY LOAD: Fetch what is already saved in your database
+  this.loadLocalFixtures();
+}
 
   loadLocalFixtures() {
   this.leagueService.getFixtures().subscribe({
