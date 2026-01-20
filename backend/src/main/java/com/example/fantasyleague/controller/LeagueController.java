@@ -43,9 +43,9 @@ public class LeagueController {
     }
 
     @PostMapping("/generate-fixtures")
-    public ResponseEntity<Map<String, String>> generate() {
+    public String generateFixtures() {
         fixtureGenerator.generateSeason();
-        return ResponseEntity.ok(Map.of("message", "Fixtures Generated!"));
+        return "Season fixtures generated!";
     }
 
     @GetMapping("/standings")
@@ -85,15 +85,16 @@ public class LeagueController {
                 .toList();
     }
 
-    @GetMapping("/health")
-    public String healthCheck() {
+    @GetMapping("/health") // Health check for Render
+    public String health() {
         return "UP";
     }
 
     @PostMapping("/sync-teams")
-    public ResponseEntity<Map<String, String>> syncTeams() {
+    public String syncTeams() {
+        // Updated from apiService to externalApiService
         externalApiService.fetchTeamsFromApi();
-        return ResponseEntity.ok(Map.of("message", "Sync started."));
+        return "Sync process started in background...";
     }
 
     @PostMapping("/sync-standings")
@@ -101,6 +102,11 @@ public class LeagueController {
         // Priority: Always fetch official standings to populate Pl, W, D, L, GD, Pts
         externalApiService.fetchOfficialStandings();
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/simulate")
+    public void simulate() {
+        leagueService.simulateTodayMatches();
     }
 
     @GetMapping("/fixtures/sync")
