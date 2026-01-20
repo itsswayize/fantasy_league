@@ -80,10 +80,11 @@ export class LeagueService {
 
   // FIXED: Standardized way to send query parameters
   getFixturesByDate(from: string, to: string): Observable<any> {
-    const params = new HttpParams()
-      .set('from', from)
-      .set('to', to);
-      
-    return this.http.get(`${this.apiUrl}/fixtures/sync`, { params });
-  }
+  const params = new HttpParams()
+    .set('from', from)
+    .set('to', to)
+    .set('t', new Date().getTime().toString()); // Cache busting for sync calls
+    
+  return this.http.get(`${this.apiUrl}/fixtures/sync`, { params });
+}
 }

@@ -62,22 +62,37 @@ export class MatchesComponent implements OnInit {
       const start = new Date(week.from).getTime();
       const end = new Date(week.to).getTime();
 
-      // Filter and use a Set or simple map to ensure UI uniqueness
-      const uniqueFixtures = data.filter(f => {
+      // Use a Map to filter out duplicates based on team names and date
+      const uniqueMap = new Map();
+
+      data.forEach(f => {
         const matchTime = new Date(f.matchDate).getTime();
-        return matchTime >= start && matchTime <= end;
+        
+        // Check if the match falls within the current matchweek range
+        if (matchTime >= start && matchTime <= end) {
+          // Create a key that identifies the match uniquely (Teams + Date)
+          const matchKey = `${f.homeTeam.name}-${f.awayTeam.name}-${f.matchDate}`;
+          
+          // Only add the first instance found to the map
+          if (!uniqueMap.has(matchKey)) {
+            uniqueMap.set(matchKey, f);
+          }
+        }
       });
 
-      // Clear the current list and replace it to prevent UI stacking
-      this.fixtures = [...uniqueFixtures].sort((a, b) => 
+      // Convert back to array and sort by time
+      this.fixtures = Array.from(uniqueMap.values()).sort((a, b) => 
         new Date(a.matchDate).getTime() - new Date(b.matchDate).getTime()
       );
       
       this.loading = false;
+    },
+    error: (err) => {
+      console.error("Error fetching fixtures:", err);
+      this.loading = false;
     }
   });
 }
-
   previousWeek() {
     if (this.currentWeekIndex > 0) {
       this.currentWeekIndex--;
