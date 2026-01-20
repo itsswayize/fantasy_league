@@ -1,11 +1,12 @@
-# Stage 1: Build the application
-FROM maven:3.8.5-openjdk-17 AS build
+# STEP 1: BUILD (The "Chef" phase - uses Maven to cook the code)
+FROM maven:3.9.6-eclipse-temurin-21 AS build
 COPY . .
-# We use 'mvn' directly instead of the 'mvnw' wrapper
 RUN mvn clean package -DskipTests
 
-# Stage 2: Run the application
-FROM eclipse-temurin:17-jre-jammy
-COPY --from=build /target/*.jar app.jar
+# STEP 2: RUN (The "Server" phase - just serves the cooked meal)
+FROM eclipse-temurin:21-jre-jammy
+# This line finds the JAR created in STEP 1 and copies it over
+COPY --from=build /target/FPL-1.0-SNAPSHOT.jar app.jar
+
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]
