@@ -13,15 +13,19 @@ public class FixtureGenerator {
     private final TeamRepository teamRepo;
     private final FixtureRepository fixtureRepo;
 
-    // Only inject repositories to prevent circular loops
     public FixtureGenerator(TeamRepository teamRepo, FixtureRepository fixtureRepo) {
         this.teamRepo = teamRepo;
         this.fixtureRepo = fixtureRepo;
     }
 
     public void generateSeason() {
+        // 1. Clean the slate so old matches don't repeat
+        fixtureRepo.deleteAll();
+
         List<Team> allTeams = teamRepo.findAll();
         LocalDate startDate = LocalDate.now();
+
+        // 2. Create one fresh set of matches
         for (int i = 0; i < allTeams.size(); i++) {
             for (int j = i + 1; j < allTeams.size(); j++) {
                 Fixture f = new Fixture();

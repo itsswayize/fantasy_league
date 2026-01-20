@@ -16,7 +16,7 @@ export class TableComponent implements OnInit {
 
   ngOnInit(): void {
     // Automatically triggers sync-standings (Real API) then fetches local data
-    this.leagueService.getStandingsWithSync().subscribe({
+    this.leagueService.getStandings().subscribe({
       next: (data: any[]) => {
         this.standings = data;
       },
