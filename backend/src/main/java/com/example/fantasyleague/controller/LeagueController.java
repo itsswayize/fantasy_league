@@ -16,7 +16,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/league")
-@CrossOrigin(origins = "http://localhost:4200")
+@CrossOrigin(origins = "*") // Allow Vercel to connect to Render
 public class LeagueController {
 
     private final LeagueService leagueService;
