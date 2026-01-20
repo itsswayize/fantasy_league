@@ -103,10 +103,10 @@ public class LeagueController {
         return ResponseEntity.ok().build();
     }
 
-    @GetMapping("/fixtures/sync")
+    @GetMapping("/fixtures/sync") // Standardized path
     public ResponseEntity<Map<String, String>> syncFixturesByDate(
-            @RequestParam String from,
-            @RequestParam String to) {
+            @RequestParam("from") String from, // Added explicit param names
+            @RequestParam("to") String to) {
         externalApiService.fetchRealFixtures(from, to);
         return ResponseEntity.ok(Map.of("message", "Syncing matches for: " + from + " to " + to));
     }

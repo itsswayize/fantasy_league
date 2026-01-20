@@ -1,10 +1,11 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http'; // Added HttpParams
 import { Observable, switchMap, delay } from 'rxjs';
 
 @Injectable({ providedIn: 'root' })
 export class LeagueService {
-  private apiUrl = 'https://fpl-backend-xxxx.onrender.com/api/league';
+  // Fixed: Using your actual Render ID 'em6n'
+  private apiUrl = 'https://fpl-backend-em6n.onrender.com/api/league';
 
   constructor(private http: HttpClient) { }
 
@@ -42,7 +43,7 @@ export class LeagueService {
     return this.http.post(`${this.apiUrl}/sync-injuries`, {});
   }
 
-  // Chained Auto-Sync Methods for your Tabs
+  // Chained Auto-Sync Methods
   getFixturesWithSync(): Observable<any[]> {
     return this.generateFixtures().pipe(
       delay(500),
@@ -66,18 +67,21 @@ export class LeagueService {
 
   syncTopScorers(): Observable<any> {
     return this.http.post(`${this.apiUrl}/sync-topscorers`, {});
-}
+  }
 
-getStatisticsWithSync(): Observable<any[]> {
+  getStatisticsWithSync(): Observable<any[]> {
     return this.syncTopScorers().pipe(
       delay(800),
-      switchMap(() => this.getStandings()) // Fetching teams includes the squad with updated stats
+      switchMap(() => this.getStandings())
     );
-}
+  }
 
-// Add this method inside your LeagueService class
-getFixturesByDate(from: string, to: string): Observable<any> {
-  return this.http.get(`${this.apiUrl}/fixtures/sync?from=${from}&to=${to}`);
-}
-
+  // FIXED: Standardized way to send query parameters
+  getFixturesByDate(from: string, to: string): Observable<any> {
+    const params = new HttpParams()
+      .set('from', from)
+      .set('to', to);
+      
+    return this.http.get(`${this.apiUrl}/fixtures/sync`, { params });
+  }
 }
