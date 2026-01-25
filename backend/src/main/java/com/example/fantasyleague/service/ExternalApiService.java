@@ -2,7 +2,7 @@ package com.example.fantasyleague.service;
 
 import com.example.fantasyleague.model.*;
 import com.example.fantasyleague.repository.*;
-import org.springframework.beans.factory.annotation.Value; // Added import
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -129,20 +129,31 @@ public class ExternalApiService {
                         Map<String, Object> result = (Map<String, Object>) response.get("result");
                         List<Map<String, Object>> standings = (List<Map<String, Object>>) result.get("total");
                         for (Map<String, Object> sData : standings) {
+                            // Removing the stage key check or ensuring it's correct is safer.
+                            // But assuming '6' is correct for now.
                             if (String.valueOf(sData.get("fk_stage_key")).equals("6")) {
                                 String apiTeamName = (String) sData.get("standing_team");
                                 Team team = findTeamLoosely(apiTeamName);
-                                if (team != null) {
-                                    team.setPoints(Integer.parseInt(String.valueOf(sData.get("standing_PTS"))));
-                                    team.setMatchesPlayed(Integer.parseInt(String.valueOf(sData.get("standing_P"))));
-                                    team.setWins(Integer.parseInt(String.valueOf(sData.get("standing_W"))));
-                                    team.setDraws(Integer.parseInt(String.valueOf(sData.get("standing_D"))));
-                                    team.setLosses(Integer.parseInt(String.valueOf(sData.get("standing_L"))));
-                                    team.setGoalsFor(Integer.parseInt(String.valueOf(sData.get("standing_F"))));
-                                    team.setGoalsAgainst(Integer.parseInt(String.valueOf(sData.get("standing_A"))));
-                                    team.setGoalDifference(Integer.parseInt(String.valueOf(sData.get("standing_GD"))));
-                                    teamRepo.save(team);
+
+                                // --- FIX START: Create team if it doesn't exist ---
+                                if (team == null) {
+                                    team = new Team();
+                                    team.setName(apiTeamName);
+                                    team.setAttackRating(70); // Default placeholder
+                                    team.setDefenseRating(70); // Default placeholder
                                 }
+                                // --- FIX END ---
+
+                                team.setPoints(Integer.parseInt(String.valueOf(sData.get("standing_PTS"))));
+                                team.setMatchesPlayed(Integer.parseInt(String.valueOf(sData.get("standing_P"))));
+                                team.setWins(Integer.parseInt(String.valueOf(sData.get("standing_W"))));
+                                team.setDraws(Integer.parseInt(String.valueOf(sData.get("standing_D"))));
+                                team.setLosses(Integer.parseInt(String.valueOf(sData.get("standing_L"))));
+                                team.setGoalsFor(Integer.parseInt(String.valueOf(sData.get("standing_F"))));
+                                team.setGoalsAgainst(Integer.parseInt(String.valueOf(sData.get("standing_A"))));
+                                team.setGoalDifference(Integer.parseInt(String.valueOf(sData.get("standing_GD"))));
+
+                                teamRepo.save(team);
                             }
                         }
                         System.out.println("Official Standings Synced.");
