@@ -11,7 +11,8 @@ import java.time.LocalDate;
 @Setter
 public class Fixture {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    // CRITICAL FIX: Removed @GeneratedValue.
+    // We will set this ID manually from the API data to prevent duplicates.
     private Long id;
 
     @ManyToOne
@@ -23,9 +24,8 @@ public class Fixture {
     private int homeScore;
     private int awayScore;
     private LocalDate matchDate;
-    private String matchTime; // Add this to store specifically the time (e.g., "15:00")
-    private boolean played;
 
-    // Stores "Finished", "Postponed", "20:00", etc.
-    private String status;
+    private String matchTime; // e.g., "15:00"
+    private String status;    // e.g., "Finished", "Live"
+    private boolean played;
 }

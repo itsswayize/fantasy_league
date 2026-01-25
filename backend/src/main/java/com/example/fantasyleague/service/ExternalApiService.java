@@ -14,7 +14,7 @@ import java.util.Map;
 @Service
 public class ExternalApiService {
 
-    private String teamString; // Dynamically set via constructor
+    private String teamString;
     private final WebClient webClient;
     private final TeamRepository teamRepo;
     private final PlayerRepository playerRepo;
@@ -22,7 +22,6 @@ public class ExternalApiService {
 
     private final String API_KEY = "bbfc07db7f5af22ba9f700d9e9fceffef32736bb4b9f77bcfdddd88264a02f5a";
 
-    // Constructor using @Value to inject fpl.league.id from application.properties
     public ExternalApiService(@Value("${fpl.league.id:152}") String teamString,
                               WebClient.Builder builder,
                               TeamRepository teamRepo,
@@ -40,9 +39,6 @@ public class ExternalApiService {
         this.fixtureRepo = fixtureRepo;
     }
 
-    /**
-     * Set the teamString at runtime if needed.
-     */
     public void setTeamString(String teamString) {
         this.teamString = teamString;
     }
@@ -64,7 +60,7 @@ public class ExternalApiService {
                 .uri(uriBuilder -> uriBuilder
                         .path("/")
                         .queryParam("met", "Teams")
-                        .queryParam("leagueId", teamString) // Uses injected teamString
+                        .queryParam("leagueId", teamString)
                         .queryParam("APIkey", API_KEY)
                         .build())
                 .retrieve()
@@ -108,9 +104,9 @@ public class ExternalApiService {
                                 }
                             }
                         }
-                        System.out.println("Teams, Players, and Injury statuses synced successfully.");
+                        System.out.println("Teams and Players Synced.");
                     }
-                }, error -> System.err.println("Persistent Error fetching teams: " + error.getMessage()));
+                }, error -> System.err.println("Error fetching teams: " + error.getMessage()));
     }
 
     @SuppressWarnings("unchecked")
@@ -119,7 +115,7 @@ public class ExternalApiService {
                 .uri(uriBuilder -> uriBuilder
                         .path("/")
                         .queryParam("met", "Standings")
-                        .queryParam("leagueId", teamString) // Uses injected teamString
+                        .queryParam("leagueId", teamString)
                         .queryParam("APIkey", API_KEY)
                         .build())
                 .retrieve()
@@ -129,21 +125,15 @@ public class ExternalApiService {
                         Map<String, Object> result = (Map<String, Object>) response.get("result");
                         List<Map<String, Object>> standings = (List<Map<String, Object>>) result.get("total");
                         for (Map<String, Object> sData : standings) {
-                            // Removing the stage key check or ensuring it's correct is safer.
-                            // But assuming '6' is correct for now.
                             if (String.valueOf(sData.get("fk_stage_key")).equals("6")) {
                                 String apiTeamName = (String) sData.get("standing_team");
                                 Team team = findTeamLoosely(apiTeamName);
-
-                                // --- FIX START: Create team if it doesn't exist ---
                                 if (team == null) {
                                     team = new Team();
                                     team.setName(apiTeamName);
-                                    team.setAttackRating(70); // Default placeholder
-                                    team.setDefenseRating(70); // Default placeholder
+                                    team.setAttackRating(70);
+                                    team.setDefenseRating(70);
                                 }
-                                // --- FIX END ---
-
                                 team.setPoints(Integer.parseInt(String.valueOf(sData.get("standing_PTS"))));
                                 team.setMatchesPlayed(Integer.parseInt(String.valueOf(sData.get("standing_P"))));
                                 team.setWins(Integer.parseInt(String.valueOf(sData.get("standing_W"))));
@@ -152,57 +142,66 @@ public class ExternalApiService {
                                 team.setGoalsFor(Integer.parseInt(String.valueOf(sData.get("standing_F"))));
                                 team.setGoalsAgainst(Integer.parseInt(String.valueOf(sData.get("standing_A"))));
                                 team.setGoalDifference(Integer.parseInt(String.valueOf(sData.get("standing_GD"))));
-
                                 teamRepo.save(team);
                             }
                         }
-                        System.out.println("Official Standings Synced.");
+                        System.out.println("Standings Synced.");
                     }
                 }, error -> System.err.println("Error syncing standings: " + error.getMessage()));
     }
 
     @SuppressWarnings("unchecked")
     public void fetchRealFixtures(String fromDate, String toDate) {
-        this.webClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/")
-                        .queryParam("met", "Fixtures")
-                        .queryParam("leagueId", teamString)
-                        .queryParam("from", fromDate)
-                        .queryParam("to", toDate)
-                        .queryParam("APIkey", API_KEY)
-                        .build())
-                .retrieve()
-                .bodyToMono(Map.class)
-                .subscribe(response -> {
-                    if (response != null && response.get("result") != null) {
-                        List<Map<String, Object>> fixtures = (List<Map<String, Object>>) response.get("result");
-                        for (Map<String, Object> fData : fixtures) {
-                            Long eventKey = Long.parseLong(String.valueOf(fData.get("event_key")));
-                            Fixture f = fixtureRepo.findById(eventKey).orElse(new Fixture());
-                            if (f.getId() == null) f.setId(eventKey);
+        // NOTE: We use .block() here to ensure data is saved BEFORE the controller returns it.
+        // This makes the UI feel slightly slower on the first load of a new week, but ensures data accuracy.
+        try {
+            Map response = this.webClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/")
+                            .queryParam("met", "Fixtures")
+                            .queryParam("leagueId", teamString)
+                            .queryParam("from", fromDate)
+                            .queryParam("to", toDate)
+                            .queryParam("APIkey", API_KEY)
+                            .build())
+                    .retrieve()
+                    .bodyToMono(Map.class)
+                    .block(); // Synchronous wait
 
-                            f.setHomeTeam(findTeamLoosely((String) fData.get("event_home_team")));
-                            f.setAwayTeam(findTeamLoosely((String) fData.get("event_away_team")));
-                            f.setMatchDate(LocalDate.parse((String) fData.get("event_date")));
+            if (response != null && response.get("result") != null) {
+                List<Map<String, Object>> fixtures = (List<Map<String, Object>>) response.get("result");
+                for (Map<String, Object> fData : fixtures) {
+                    Long eventKey = Long.parseLong(String.valueOf(fData.get("event_key")));
 
-                            // --- NEW: Set Time and Status ---
-                            f.setMatchTime((String) fData.get("event_time"));
-                            f.setStatus((String) fData.get("event_status"));
-                            // --------------------------------
+                    // FIX: Find existing fixture by ID to update it, OR create new with that ID
+                    Fixture f = fixtureRepo.findById(eventKey).orElse(new Fixture());
+                    f.setId(eventKey); // Ensure ID is set
 
-                            String finalResult = String.valueOf(fData.get("event_final_result"));
-                            if (finalResult != null && finalResult.contains(" - ")) {
-                                String[] scores = finalResult.split(" - ");
-                                f.setHomeScore(Integer.parseInt(scores[0].trim()));
-                                f.setAwayScore(Integer.parseInt(scores[1].trim()));
-                            }
-                            f.setPlayed("Finished".equals(fData.get("event_status")));
-                            if (f.getHomeTeam() != null && f.getAwayTeam() != null) fixtureRepo.save(f);
-                        }
-                        System.out.println("Fixtures synced unique for dates: " + fromDate + " to " + toDate);
+                    f.setHomeTeam(findTeamLoosely((String) fData.get("event_home_team")));
+                    f.setAwayTeam(findTeamLoosely((String) fData.get("event_away_team")));
+                    f.setMatchDate(LocalDate.parse((String) fData.get("event_date")));
+
+                    // New Fields
+                    f.setMatchTime((String) fData.get("event_time"));
+                    f.setStatus((String) fData.get("event_status"));
+
+                    String finalResult = String.valueOf(fData.get("event_final_result"));
+                    if (finalResult != null && finalResult.contains(" - ")) {
+                        String[] scores = finalResult.split(" - ");
+                        f.setHomeScore(Integer.parseInt(scores[0].trim()));
+                        f.setAwayScore(Integer.parseInt(scores[1].trim()));
                     }
-                }, error -> System.err.println("Error fetching fixtures: " + error.getMessage()));
+                    f.setPlayed("Finished".equals(fData.get("event_status")));
+
+                    if (f.getHomeTeam() != null && f.getAwayTeam() != null) {
+                        fixtureRepo.save(f);
+                    }
+                }
+                System.out.println("Fixtures synced for dates: " + fromDate + " to " + toDate);
+            }
+        } catch (Exception e) {
+            System.err.println("Error fetching fixtures: " + e.getMessage());
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -211,7 +210,7 @@ public class ExternalApiService {
                 .uri(uriBuilder -> uriBuilder
                         .path("/")
                         .queryParam("met", "Injuries")
-                        .queryParam("leagueId", teamString) // Uses injected teamString
+                        .queryParam("leagueId", teamString)
                         .queryParam("APIkey", API_KEY)
                         .build())
                 .retrieve()
@@ -238,7 +237,7 @@ public class ExternalApiService {
                                     });
                         }
                     }
-                }, error -> System.err.println("Persistent API Error for injuries: " + error.getMessage()));
+                }, error -> System.err.println("Error fetching injuries: " + error.getMessage()));
     }
 
     @SuppressWarnings("unchecked")
@@ -247,7 +246,7 @@ public class ExternalApiService {
                 .uri(uriBuilder -> uriBuilder
                         .path("/")
                         .queryParam("met", "Topscorers")
-                        .queryParam("leagueId", teamString) // Uses injected teamString
+                        .queryParam("leagueId", teamString)
                         .queryParam("APIkey", API_KEY)
                         .build())
                 .retrieve()

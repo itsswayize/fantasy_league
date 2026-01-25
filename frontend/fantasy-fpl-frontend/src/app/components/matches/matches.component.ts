@@ -1,150 +1,130 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LeagueService } from '../../services/league.service';
-import { interval, Subscription } from 'rxjs';
-
-// Helper interface for grouping
-interface DateGroup {
-  date: string;
-  fixtures: any[];
-}
 
 @Component({
   selector: 'app-matches',
   standalone: true,
   imports: [CommonModule],
   templateUrl: './matches.component.html',
-  styleUrl: './matches.component.css'
+  styleUrls: ['./matches.component.css']
 })
-export class MatchesComponent implements OnInit, OnDestroy {
-  allFixtures: any[] = []; // Store raw data here
-  groupedFixtures: DateGroup[] = []; // Store grouped data for the view
+export class MatchesComponent implements OnInit {
+  groupedFixtures: any[] = [];
   loading: boolean = false;
-  currentWeekIndex: number = 0;
 
-  private pollingSubscription?: Subscription;
+  // Dynamic Week State
+  currentWeekNumber: number = 1;
+  viewStart!: Date;
+  viewEnd!: Date;
 
-  // Navigation Data - Matchweeks
-  matchweeks = [
-    { label: 'Matchweek 1', from: '2025-08-15', to: '2025-08-18' },
-    // ... keep your existing matchweeks list ...
-    { label: 'Matchweek 21', from: '2026-01-06', to: '2026-01-08' },
-    { label: 'Matchweek 22', from: '2026-01-17', to: '2026-01-19' },
-    { label: 'Matchweek 23', from: '2026-01-24', to: '2026-01-26' },
-    { label: 'Matchweek 24', from: '2026-01-31', to: '2026-02-02' },
-    { label: 'Matchweek 25', from: '2026-02-07', to: '2026-02-09' }
-    // Add more weeks as needed for the season
-  ];
+  // Configuration: The official start of the 2025/2026 season
+  private readonly SEASON_START_DATE = new Date('2025-08-15'); 
 
   constructor(private leagueService: LeagueService) {}
 
   ngOnInit(): void {
-    this.determineCurrentWeek(); // 1. Find the active week automatically
-    this.loadFixtures(); // 2. Fetch data
-
-    // Refresh every 60s
-    this.pollingSubscription = interval(60000).subscribe(() => {
-      this.loadFixtures();
-    });
+    this.initializeCurrentWeek();
+    this.fetchDataForCurrentView();
   }
 
-  ngOnDestroy(): void {
-    if (this.pollingSubscription) {
-      this.pollingSubscription.unsubscribe();
-    }
-  }
-
-  determineCurrentWeek() {
-    const today = new Date().getTime();
+  // 1. Calculate which Game Week we are in today
+  initializeCurrentWeek() {
+    const today = new Date();
     
-    // Find the first matchweek that ends AFTER today
-    const foundIndex = this.matchweeks.findIndex(week => {
-      const weekEnd = new Date(week.to).getTime();
-      return weekEnd >= today;
-    });
+    // Calculate difference in milliseconds
+    const diffTime = Math.abs(today.getTime() - this.SEASON_START_DATE.getTime());
+    // Convert to days
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+    
+    // Calculate Week Number (approximate, assuming 1 week = 1 gameweek)
+    this.currentWeekNumber = Math.ceil(diffDays / 7);
+    
+    // Safety check: Ensure we don't go below 1 or wildly above 38
+    if (this.currentWeekNumber < 1) this.currentWeekNumber = 1;
+    if (this.currentWeekNumber > 38) this.currentWeekNumber = 38;
 
-    // If found, use it; otherwise default to the last one or 0
-    this.currentWeekIndex = foundIndex !== -1 ? foundIndex : 0;
+    this.calculateDatesForWeek(this.currentWeekNumber);
   }
 
-  loadFixtures(): void {
+  // 2. Determine start/end dates based on Week Number
+  calculateDatesForWeek(weekNum: number) {
+    // Start date = SeasonStart + ((Week - 1) * 7 days)
+    const daysToAdd = (weekNum - 1) * 7;
+    
+    const start = new Date(this.SEASON_START_DATE);
+    start.setDate(start.getDate() + daysToAdd);
+    
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6); // A gameweek is roughly 7 days long (Fri-Thu)
+
+    this.viewStart = start;
+    this.viewEnd = end;
+  }
+
+  // 3. Fetch data from Backend using the calculated dates
+  fetchDataForCurrentView() {
     this.loading = true;
-    this.leagueService.getFixtures().subscribe({
+    const fromStr = this.formatDateForApi(this.viewStart);
+    const toStr = this.formatDateForApi(this.viewEnd);
+
+    this.leagueService.getFixtures(fromStr, toStr).subscribe({
       next: (data) => {
-        this.allFixtures = data;
-        this.filterAndGroupFixtures(); // Process the raw data
+        this.processFixtures(data);
         this.loading = false;
       },
       error: (err) => {
-        console.error("Error fetching fixtures:", err);
+        console.error(err);
         this.loading = false;
       }
     });
   }
 
-  // Filter fixtures for the selected week and group them by Date
-  filterAndGroupFixtures() {
-    const week = this.matchweeks[this.currentWeekIndex];
-    const start = new Date(week.from).setHours(0,0,0,0);
-    const end = new Date(week.to).setHours(23,59,59,999);
-
-    // 1. Filter fixtures in range
-    const weeksFixtures = this.allFixtures.filter(f => {
-      const matchTime = new Date(f.matchDate).getTime();
-      return matchTime >= start && matchTime <= end;
-    });
-
-    // 2. Sort by Date/Time
-    weeksFixtures.sort((a, b) => 
-      new Date(a.matchDate).getTime() - new Date(b.matchDate).getTime()
+  // 4. Group by Date Header (e.g., "Sat 31 Jan")
+  processFixtures(data: any[]) {
+    // Sort by Date/Time first
+    data.sort((a, b) => 
+      new Date(a.matchDate + 'T' + (a.matchTime || '00:00')).getTime() - 
+      new Date(b.matchDate + 'T' + (b.matchTime || '00:00')).getTime()
     );
 
-    // 3. Group by Date Key (e.g., "Saturday 31 Jan")
     const groups = new Map<string, any[]>();
 
-    weeksFixtures.forEach(f => {
-      const dateKey = this.formatDateHeader(f.matchDate);
-      if (!groups.has(dateKey)) {
-        groups.set(dateKey, []);
+    data.forEach(f => {
+      const header = this.formatDateHeader(f.matchDate);
+      if (!groups.has(header)) {
+        groups.set(header, []);
       }
-      groups.get(dateKey)?.push(f);
+      groups.get(header)?.push(f);
     });
 
-    // Convert Map to Array for the HTML
     this.groupedFixtures = Array.from(groups, ([date, fixtures]) => ({ date, fixtures }));
   }
 
-  formatDateHeader(dateStr: string): string {
-    const date = new Date(dateStr);
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
-
-    const yesterday = new Date(today);
-    yesterday.setDate(today.getDate() - 1);
-
-    // Check for Today/Tomorrow/Yesterday
-    if (date.getTime() === today.getTime()) return 'Today';
-    if (date.getTime() === tomorrow.getTime()) return 'Tomorrow';
-    if (date.getTime() === yesterday.getTime()) return 'Yesterday';
-
-    // Otherwise standard format "Sat 31 Jan"
-    return new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).format(date);
-  }
-
+  // Navigation: Previous Week
   previousWeek() {
-    if (this.currentWeekIndex > 0) {
-      this.currentWeekIndex--;
-      this.filterAndGroupFixtures();
+    if (this.currentWeekNumber > 1) {
+      this.currentWeekNumber--;
+      this.calculateDatesForWeek(this.currentWeekNumber);
+      this.fetchDataForCurrentView();
     }
   }
 
+  // Navigation: Next Week
   nextWeek() {
-    if (this.currentWeekIndex < this.matchweeks.length - 1) {
-      this.currentWeekIndex++;
-      this.filterAndGroupFixtures();
-    }
+    // Allow going up to Week 38+ if needed
+    this.currentWeekNumber++;
+    this.calculateDatesForWeek(this.currentWeekNumber);
+    this.fetchDataForCurrentView();
+  }
+
+  // Helpers
+  private formatDateForApi(date: Date): string {
+    return date.toISOString().split('T')[0]; // Returns YYYY-MM-DD
+  }
+
+  private formatDateHeader(dateStr: string): string {
+    const d = new Date(dateStr);
+    return new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).format(d);
   }
 }

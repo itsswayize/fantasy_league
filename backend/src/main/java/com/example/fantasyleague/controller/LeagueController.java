@@ -18,7 +18,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/league")
-@CrossOrigin(origins = "*") // Allows Vercel to communicate with Render
+@CrossOrigin(origins = "*")
 public class LeagueController {
 
     private final LeagueService leagueService;
@@ -44,7 +44,6 @@ public class LeagueController {
         return "UP";
     }
 
-    // FIXED: Only ONE /simulate endpoint
     @PostMapping("/simulate")
     public void simulateToday() {
         leagueService.simulateTodayMatches();
@@ -56,26 +55,42 @@ public class LeagueController {
         return "Season fixtures generated!";
     }
 
-    // backend/src/main/java/com/example/fantasyleague/controller/LeagueController.java
-
     @GetMapping("/standings")
     public List<Team> getStandings() {
-        // Force a fresh sync from the API whenever this tab is loaded
         externalApiService.fetchOfficialStandings();
         return teamRepo.findAll();
     }
 
+    // FIXED: Smart Fixture Fetching
     @GetMapping("/fixtures")
-    public List<Fixture> getFixtures() {
-        // Fetch a wider range: last 7 days to next 12 weeks
-        String start = LocalDate.now().minusDays(7).toString();
-        String end = LocalDate.now().plusWeeks(12).toString(); // Increased from 4 to 12
-        externalApiService.fetchRealFixtures(start, end);
+    public List<Fixture> getFixtures(
+            @RequestParam(value = "from", required = false) String from,
+            @RequestParam(value = "to", required = false) String to
+    ) {
+        // If no dates provided, default to current week
+        if (from == null || to == null) {
+            from = LocalDate.now().minusDays(1).toString();
+            to = LocalDate.now().plusDays(6).toString();
+        }
 
-        return fixtureRepo.findAll();
+        LocalDate start = LocalDate.parse(from);
+        LocalDate end = LocalDate.parse(to);
+
+        // 1. Check local DB
+        List<Fixture> dbFixtures = fixtureRepo.findByDateRange(start, end);
+
+        // 2. If empty, fetch from API and save
+        if (dbFixtures.isEmpty()) {
+            System.out.println("Cache miss for " + from + " - Fetching from API...");
+            externalApiService.fetchRealFixtures(from, to);
+            // Re-fetch from DB
+            return fixtureRepo.findByDateRange(start, end);
+        }
+
+        return dbFixtures;
     }
 
-    @Scheduled(cron = "0 0 * * * *") // Runs every hour
+    @Scheduled(cron = "0 0 * * * *")
     public void refreshData() {
         externalApiService.fetchOfficialStandings();
         String today = LocalDate.now().toString();
@@ -110,7 +125,7 @@ public class LeagueController {
     @PostMapping("/sync-teams")
     public String syncTeams() {
         externalApiService.fetchTeamsFromApi();
-        return "Sync process started in background...";
+        return "Sync process started...";
     }
 
     @PostMapping("/sync-standings")
@@ -119,9 +134,9 @@ public class LeagueController {
         return ResponseEntity.ok().build();
     }
 
-    @GetMapping("/fixtures/sync") // Standardized path
+    @GetMapping("/fixtures/sync")
     public ResponseEntity<Map<String, String>> syncFixturesByDate(
-            @RequestParam("from") String from, // Added explicit param names
+            @RequestParam("from") String from,
             @RequestParam("to") String to) {
         externalApiService.fetchRealFixtures(from, to);
         return ResponseEntity.ok(Map.of("message", "Syncing matches for: " + from + " to " + to));

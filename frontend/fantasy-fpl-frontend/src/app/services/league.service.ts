@@ -1,24 +1,35 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http'; // Added HttpParams
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, switchMap, delay } from 'rxjs';
 
 @Injectable({ providedIn: 'root' })
 export class LeagueService {
-  // Fixed: Using your actual Render ID 'em6n'
+  // Use your actual Render ID
   private apiUrl = 'https://fpl-backend-em6n.onrender.com/api/league';
 
   constructor(private http: HttpClient) { }
 
-  // Basic Data Getters
+  // ======================================================
+  // 1. UPDATED FIXTURES METHOD (Fixes the Error)
+  // ======================================================
+  getFixtures(from?: string, to?: string): Observable<any[]> {
+    let params = new HttpParams()
+      .set('t', new Date().getTime().toString()); // Cache busting
+    
+    // If dates are provided, send them to the backend
+    if (from && to) {
+      params = params.set('from', from).set('to', to);
+    }
+
+    return this.http.get<any[]>(`${this.apiUrl}/fixtures`, { params });
+  }
+
+  // ======================================================
+  // 2. OTHER METHODS
+  // ======================================================
   getStandings(): Observable<any[]> {
     return this.http.get<any[]>(`${this.apiUrl}/standings`);
   }
-
-  getFixtures(): Observable<any[]> {
-    // Adding ?t= ensures you get fresh data from the server, not a cached version
-    const timestamp = new Date().getTime();
-    return this.http.get<any[]>(`${this.apiUrl}/fixtures?t=${timestamp}`);
-}
 
   getClubDetails(id: number): Observable<any> {
     return this.http.get<any>(`${this.apiUrl}/clubs/${id}`);
@@ -77,14 +88,4 @@ export class LeagueService {
       switchMap(() => this.getStandings())
     );
   }
-
-  // FIXED: Standardized way to send query parameters
-  getFixturesByDate(from: string, to: string): Observable<any> {
-  const params = new HttpParams()
-    .set('from', from)
-    .set('to', to)
-    .set('t', new Date().getTime().toString()); // Cache busting for sync calls
-    
-  return this.http.get(`${this.apiUrl}/fixtures/sync`, { params });
-}
 }
