@@ -1,43 +1,33 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
-import { interval, Subject } from 'rxjs';
-import { takeUntil, startWith, switchMap } from 'rxjs/operators';
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common'; // <--- CRITICAL for *ngFor
 import { LeagueService } from '../../services/league.service';
 
 @Component({
   selector: 'app-table',
+  standalone: true,
+  imports: [CommonModule], // <--- MUST INCLUDE THIS
   templateUrl: './table.component.html',
   styleUrls: ['./table.component.css']
 })
-export class TableComponent implements OnInit, OnDestroy {
-  private destroy$ = new Subject<void>();
-  standings: any[] = []; // Changed from 'teams' to match HTML
-  isLoading: boolean = true;
+export class TableComponent implements OnInit {
+  teams: any[] = []; // This variable name must match *ngFor="let team of teams"
 
   constructor(private leagueService: LeagueService) {}
 
   ngOnInit(): void {
-    interval(60000)
-      .pipe(
-        startWith(0), 
-        switchMap(() => this.leagueService.getStandings()),
-        takeUntil(this.destroy$)
-      )
-      .subscribe({
-        next: (data) => {
-          // Map and sort the data to ensure property names are consistent
-          this.standings = data.sort((a, b) => b.points - a.points);
-          this.isLoading = false;
-          console.log('Standings updated:', this.standings);
-        },
-        error: (err) => {
-          console.error('Error fetching standings:', err);
-          this.isLoading = false;
-        }
-      });
+    this.fetchStandings();
   }
 
-  ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
+  fetchStandings() {
+    this.leagueService.getStandings().subscribe({
+      next: (data) => {
+        console.log('API Data Received:', data); // Check your browser console
+        // Sort by points (highest first), then goal difference
+        this.teams = data.sort((a: any, b: any) => 
+          b.points - a.points || b.goalDifference - a.goalDifference
+        );
+      },
+      error: (err) => console.error('Error fetching table:', err)
+    });
   }
 }
