@@ -152,9 +152,8 @@ public class ExternalApiService {
 
     @SuppressWarnings("unchecked")
     public void fetchRealFixtures(String fromDate, String toDate) {
-        // NOTE: We use .block() here to ensure data is saved BEFORE the controller returns it.
-        // This makes the UI feel slightly slower on the first load of a new week, but ensures data accuracy.
         try {
+            // Using .block() ensures we wait for the save to finish before responding to UI
             Map response = this.webClient.get()
                     .uri(uriBuilder -> uriBuilder
                             .path("/")
@@ -173,15 +172,15 @@ public class ExternalApiService {
                 for (Map<String, Object> fData : fixtures) {
                     Long eventKey = Long.parseLong(String.valueOf(fData.get("event_key")));
 
-                    // FIX: Find existing fixture by ID to update it, OR create new with that ID
+                    // FIX: Ensure we use the ID from API to prevent duplicates
                     Fixture f = fixtureRepo.findById(eventKey).orElse(new Fixture());
-                    f.setId(eventKey); // Ensure ID is set
+                    f.setId(eventKey);
 
                     f.setHomeTeam(findTeamLoosely((String) fData.get("event_home_team")));
                     f.setAwayTeam(findTeamLoosely((String) fData.get("event_away_team")));
                     f.setMatchDate(LocalDate.parse((String) fData.get("event_date")));
 
-                    // New Fields
+                    // Store Time and Status
                     f.setMatchTime((String) fData.get("event_time"));
                     f.setStatus((String) fData.get("event_status"));
 
@@ -197,7 +196,7 @@ public class ExternalApiService {
                         fixtureRepo.save(f);
                     }
                 }
-                System.out.println("Fixtures synced for dates: " + fromDate + " to " + toDate);
+                System.out.println("Fixtures synced for: " + fromDate + " to " + toDate);
             }
         } catch (Exception e) {
             System.err.println("Error fetching fixtures: " + e.getMessage());

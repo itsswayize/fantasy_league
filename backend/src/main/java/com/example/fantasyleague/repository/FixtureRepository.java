@@ -12,10 +12,10 @@ import java.util.List;
 @Repository
 public interface FixtureRepository extends JpaRepository<Fixture, Long> {
 
-    // Used by your getFixtures API to filter by date range
+    // Finds matches for a specific range (for the frontend "Matchweek" view)
     @Query("SELECT f FROM Fixture f WHERE f.matchDate BETWEEN :startDate AND :endDate ORDER BY f.matchDate ASC, f.matchTime ASC")
     List<Fixture> findByDateRange(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
-    // CRITICAL FIX: This was missing and caused the build failure in LeagueService
+    // Finds unplayed matches for a specific day (for the Simulator)
     List<Fixture> findByMatchDateAndPlayedFalse(LocalDate matchDate);
 }

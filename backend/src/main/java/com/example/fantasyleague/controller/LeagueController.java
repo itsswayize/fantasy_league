@@ -40,9 +40,7 @@ public class LeagueController {
     }
 
     @GetMapping("/health")
-    public String health() {
-        return "UP";
-    }
+    public String health() { return "UP"; }
 
     @PostMapping("/simulate")
     public void simulateToday() {
@@ -67,7 +65,6 @@ public class LeagueController {
             @RequestParam(value = "from", required = false) String from,
             @RequestParam(value = "to", required = false) String to
     ) {
-        // If no dates provided, default to current week
         if (from == null || to == null) {
             from = LocalDate.now().minusDays(1).toString();
             to = LocalDate.now().plusDays(6).toString();
@@ -81,9 +78,8 @@ public class LeagueController {
 
         // 2. If empty, fetch from API and save
         if (dbFixtures.isEmpty()) {
-            System.out.println("Cache miss for " + from + " - Fetching from API...");
+            System.out.println("Cache miss for " + from + ". Fetching from API...");
             externalApiService.fetchRealFixtures(from, to);
-            // Re-fetch from DB
             return fixtureRepo.findByDateRange(start, end);
         }
 
@@ -99,9 +95,7 @@ public class LeagueController {
 
     @GetMapping("/clubs")
     public List<Team> getClubs() {
-        return teamRepo.findAll().stream()
-                .sorted((t1, t2) -> t1.getName().compareToIgnoreCase(t2.getName()))
-                .toList();
+        return teamRepo.findAll();
     }
 
     @GetMapping("/clubs/{id}")
@@ -125,7 +119,7 @@ public class LeagueController {
     @PostMapping("/sync-teams")
     public String syncTeams() {
         externalApiService.fetchTeamsFromApi();
-        return "Sync process started...";
+        return "Sync started...";
     }
 
     @PostMapping("/sync-standings")
