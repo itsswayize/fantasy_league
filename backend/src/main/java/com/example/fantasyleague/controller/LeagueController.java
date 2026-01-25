@@ -56,13 +56,13 @@ public class LeagueController {
         return "Season fixtures generated!";
     }
 
+    // backend/src/main/java/com/example/fantasyleague/controller/LeagueController.java
+
     @GetMapping("/standings")
     public List<Team> getStandings() {
-        // Automatically fetch real points from the API before returning the list
+        // Force a fresh sync from the API whenever this tab is loaded
         externalApiService.fetchOfficialStandings();
-        return teamRepo.findAll().stream()
-                .sorted((t1, t2) -> Integer.compare(t2.getPoints(), t1.getPoints()))
-                .toList();
+        return teamRepo.findAll();
     }
 
     @GetMapping("/fixtures")

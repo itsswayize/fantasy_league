@@ -10,13 +10,12 @@ import { LeagueService } from '../../services/league.service';
 })
 export class TableComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
-  teams: any[] = [];
-  isLoading: boolean = true; // Add a loading state
+  standings: any[] = []; // Changed from 'teams' to match HTML
+  isLoading: boolean = true;
 
   constructor(private leagueService: LeagueService) {}
 
   ngOnInit(): void {
-    // This setup calls the API immediately (0) and then every 60 seconds
     interval(60000)
       .pipe(
         startWith(0), 
@@ -25,10 +24,10 @@ export class TableComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (data) => {
-          // Sort teams by points (highest first)
-          this.teams = data.sort((a, b) => b.points - a.points);
+          // Map and sort the data to ensure property names are consistent
+          this.standings = data.sort((a, b) => b.points - a.points);
           this.isLoading = false;
-          console.log('Standings updated:', this.teams);
+          console.log('Standings updated:', this.standings);
         },
         error: (err) => {
           console.error('Error fetching standings:', err);
