@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LeagueService } from '../../services/league.service';
+import { interval, Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-matches',
@@ -12,6 +13,8 @@ import { LeagueService } from '../../services/league.service';
 export class MatchesComponent implements OnInit {
   fixtures: any[] = [];
   loading: boolean = false;
+
+  private pollingSubscription?: Subscription;
 
   // Navigation Data
   matchweeks = [
@@ -43,8 +46,23 @@ export class MatchesComponent implements OnInit {
   constructor(private leagueService: LeagueService) {}
 
   ngOnInit(): void {
-    this.loadCurrentWeek();
+    // Initial load when the tab is clicked
+    this.loadFixtures();
+
+    // Set up polling to refresh every 60 seconds
+    this.pollingSubscription = interval(60000).subscribe(() => {
+      console.log('Refreshing live scores and fixtures...');
+      this.loadFixtures();
+    });
   }
+
+  loadFixtures(): void {
+  this.leagueService.getFixtures().subscribe(data => {
+    this.fixtures = data;
+    // This will now include future dates and correct week numbers 
+    // because the backend syncs before responding.
+  });
+}
 
   loadCurrentWeek() {
   this.loading = true;
@@ -54,6 +72,8 @@ export class MatchesComponent implements OnInit {
   // ONLY LOAD: Fetch what is already saved in your database
   this.loadLocalFixtures();
 }
+
+
 
   loadLocalFixtures() {
   this.leagueService.getFixtures().subscribe({

@@ -9,8 +9,10 @@ import com.example.fantasyleague.service.ExternalApiService;
 import com.example.fantasyleague.service.FixtureGenerator;
 import com.example.fantasyleague.service.LeagueService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -56,6 +58,8 @@ public class LeagueController {
 
     @GetMapping("/standings")
     public List<Team> getStandings() {
+        // Automatically fetch real points from the API before returning the list
+        externalApiService.fetchOfficialStandings();
         return teamRepo.findAll().stream()
                 .sorted((t1, t2) -> Integer.compare(t2.getPoints(), t1.getPoints()))
                 .toList();
@@ -63,7 +67,20 @@ public class LeagueController {
 
     @GetMapping("/fixtures")
     public List<Fixture> getFixtures() {
+        // Fetch a range that includes last week and the next 4 weeks
+        // This ensures Matchweek 24 and 25 are populated automatically
+        String start = LocalDate.now().minusDays(7).toString();
+        String end = LocalDate.now().plusWeeks(4).toString();
+        externalApiService.fetchRealFixtures(start, end);
+
         return fixtureRepo.findAll();
+    }
+
+    @Scheduled(cron = "0 0 * * * *") // Runs every hour
+    public void refreshData() {
+        externalApiService.fetchOfficialStandings();
+        String today = LocalDate.now().toString();
+        externalApiService.fetchRealFixtures(today, today);
     }
 
     @GetMapping("/clubs")
