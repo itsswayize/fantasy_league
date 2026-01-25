@@ -67,10 +67,9 @@ public class LeagueController {
 
     @GetMapping("/fixtures")
     public List<Fixture> getFixtures() {
-        // Fetch a range that includes last week and the next 4 weeks
-        // This ensures Matchweek 24 and 25 are populated automatically
+        // Fetch a wider range: last 7 days to next 12 weeks
         String start = LocalDate.now().minusDays(7).toString();
-        String end = LocalDate.now().plusWeeks(4).toString();
+        String end = LocalDate.now().plusWeeks(12).toString(); // Increased from 4 to 12
         externalApiService.fetchRealFixtures(start, end);
 
         return fixtureRepo.findAll();

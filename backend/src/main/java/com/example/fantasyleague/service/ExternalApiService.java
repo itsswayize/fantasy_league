@@ -167,7 +167,7 @@ public class ExternalApiService {
                 .uri(uriBuilder -> uriBuilder
                         .path("/")
                         .queryParam("met", "Fixtures")
-                        .queryParam("leagueId", teamString) // Uses injected teamString
+                        .queryParam("leagueId", teamString)
                         .queryParam("from", fromDate)
                         .queryParam("to", toDate)
                         .queryParam("APIkey", API_KEY)
@@ -185,6 +185,11 @@ public class ExternalApiService {
                             f.setHomeTeam(findTeamLoosely((String) fData.get("event_home_team")));
                             f.setAwayTeam(findTeamLoosely((String) fData.get("event_away_team")));
                             f.setMatchDate(LocalDate.parse((String) fData.get("event_date")));
+
+                            // --- NEW: Set Time and Status ---
+                            f.setMatchTime((String) fData.get("event_time"));
+                            f.setStatus((String) fData.get("event_status"));
+                            // --------------------------------
 
                             String finalResult = String.valueOf(fData.get("event_final_result"));
                             if (finalResult != null && finalResult.contains(" - ")) {

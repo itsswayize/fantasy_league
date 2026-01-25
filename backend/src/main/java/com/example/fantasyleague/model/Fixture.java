@@ -23,5 +23,9 @@ public class Fixture {
     private int homeScore;
     private int awayScore;
     private LocalDate matchDate;
+    private String matchTime; // Add this to store specifically the time (e.g., "15:00")
     private boolean played;
+
+    // Stores "Finished", "Postponed", "20:00", etc.
+    private String status;
 }
