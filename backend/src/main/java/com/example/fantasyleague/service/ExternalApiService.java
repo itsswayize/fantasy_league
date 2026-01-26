@@ -44,6 +44,11 @@ public class ExternalApiService {
     }
 
     private Team findTeamLoosely(String apiName) {
+        // 1. Try exact match first (Efficient & Prevents Duplicates)
+        Team exact = teamRepo.findByName(apiName);
+        if (exact != null) return exact;
+
+        // 2. Fuzzy match
         return teamRepo.findAll().stream()
                 .filter(t -> t.getName().equalsIgnoreCase(apiName) ||
                         t.getName().toLowerCase().contains(apiName.toLowerCase()) ||
@@ -79,6 +84,7 @@ public class ExternalApiService {
                             team.setLogoUrl((String) teamData.get("team_logo"));
                             teamRepo.save(team);
 
+                            // ... (Player logic remains the same) ...
                             if (teamData.containsKey("players")) {
                                 List<Map<String, Object>> playersList = (List<Map<String, Object>>) teamData.get("players");
                                 for (Map<String, Object> pData : playersList) {
@@ -111,6 +117,7 @@ public class ExternalApiService {
 
     @SuppressWarnings("unchecked")
     public void fetchOfficialStandings() {
+        // ... (Keep existing implementation) ...
         this.webClient.get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/")
@@ -153,7 +160,6 @@ public class ExternalApiService {
     @SuppressWarnings("unchecked")
     public void fetchRealFixtures(String fromDate, String toDate) {
         try {
-            // Using .block() ensures we wait for the save to finish before responding to UI
             Map response = this.webClient.get()
                     .uri(uriBuilder -> uriBuilder
                             .path("/")
@@ -165,14 +171,13 @@ public class ExternalApiService {
                             .build())
                     .retrieve()
                     .bodyToMono(Map.class)
-                    .block(); // Synchronous wait
+                    .block();
 
             if (response != null && response.get("result") != null) {
                 List<Map<String, Object>> fixtures = (List<Map<String, Object>>) response.get("result");
                 for (Map<String, Object> fData : fixtures) {
                     Long eventKey = Long.parseLong(String.valueOf(fData.get("event_key")));
 
-                    // FIX: Ensure we use the ID from API to prevent duplicates
                     Fixture f = fixtureRepo.findById(eventKey).orElse(new Fixture());
                     f.setId(eventKey);
 
@@ -180,8 +185,10 @@ public class ExternalApiService {
                     f.setAwayTeam(findTeamLoosely((String) fData.get("event_away_team")));
                     f.setMatchDate(LocalDate.parse((String) fData.get("event_date")));
 
-                    // Store Time and Status
-                    f.setMatchTime((String) fData.get("event_time"));
+                    // FIX: Handle potential NULL time from API gracefully
+                    Object timeObj = fData.get("event_time");
+                    f.setMatchTime(timeObj != null ? (String) timeObj : "00:00");
+
                     f.setStatus((String) fData.get("event_status"));
 
                     String finalResult = String.valueOf(fData.get("event_final_result"));
@@ -203,6 +210,7 @@ public class ExternalApiService {
         }
     }
 
+    // ... (Keep the rest of the file: fetchInjuries, fetchTopScorers, etc.) ...
     @SuppressWarnings("unchecked")
     public void fetchInjuries() {
         this.webClient.get()

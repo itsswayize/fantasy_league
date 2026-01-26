@@ -47,6 +47,7 @@ public class LeagueController {
         leagueService.simulateTodayMatches();
     }
 
+    // WARNING: Only use this if you want dummy data!
     @PostMapping("/generate-fixtures")
     public String generateFixtures() {
         fixtureGenerator.generateSeason();
@@ -59,7 +60,7 @@ public class LeagueController {
         return teamRepo.findAll();
     }
 
-    // FIXED: Smart Fixture Fetching
+    // FIXED: Smart Fixture Fetching (Auto-cleans dummy data)
     @GetMapping("/fixtures")
     public List<Fixture> getFixtures(
             @RequestParam(value = "from", required = false) String from,
@@ -76,9 +77,18 @@ public class LeagueController {
         // 1. Check local DB
         List<Fixture> dbFixtures = fixtureRepo.findByDateRange(start, end);
 
-        // 2. If empty, fetch from API and save
-        if (dbFixtures.isEmpty()) {
-            System.out.println("Cache miss for " + from + ". Fetching from API...");
+        // 2. DETECT BAD DATA: If fixtures exist but have no time (dummy data from generator)
+        boolean isDummyData = !dbFixtures.isEmpty() && dbFixtures.stream().anyMatch(f -> f.getMatchTime() == null || f.getMatchTime().equals("00:00"));
+
+        // 3. If empty OR dummy data found -> Fetch from API
+        if (dbFixtures.isEmpty() || isDummyData) {
+            System.out.println("Cache miss or Dummy Data detected. Fetching real data from API...");
+
+            // Clean up the bad data first to prevent duplicates
+            if (isDummyData) {
+                fixtureRepo.deleteAll(dbFixtures);
+            }
+
             externalApiService.fetchRealFixtures(from, to);
             return fixtureRepo.findByDateRange(start, end);
         }
