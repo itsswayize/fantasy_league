@@ -47,7 +47,7 @@ public class LeagueController {
         leagueService.simulateTodayMatches();
     }
 
-    // WARNING: Only use this if you want dummy data!
+    // NOTE: Only run this if you want dummy data!
     @PostMapping("/generate-fixtures")
     public String generateFixtures() {
         fixtureGenerator.generateSeason();
@@ -60,7 +60,7 @@ public class LeagueController {
         return teamRepo.findAll();
     }
 
-    // FIXED: Smart Fixture Fetching (Auto-cleans dummy data)
+    // FIXED: Deadlock-free Smart Fixture Fetching
     @GetMapping("/fixtures")
     public List<Fixture> getFixtures(
             @RequestParam(value = "from", required = false) String from,
@@ -74,22 +74,25 @@ public class LeagueController {
         LocalDate start = LocalDate.parse(from);
         LocalDate end = LocalDate.parse(to);
 
-        // 1. Check local DB
         List<Fixture> dbFixtures = fixtureRepo.findByDateRange(start, end);
 
-        // 2. DETECT BAD DATA: If fixtures exist but have no time (dummy data from generator)
-        boolean isDummyData = !dbFixtures.isEmpty() && dbFixtures.stream().anyMatch(f -> f.getMatchTime() == null || f.getMatchTime().equals("00:00"));
+        // Detect bad data: If matches exist but have "00:00" as time
+        boolean isDummyData = !dbFixtures.isEmpty() && dbFixtures.stream()
+                .anyMatch(f -> f.getMatchTime() == null || f.getMatchTime().equals("00:00"));
 
-        // 3. If empty OR dummy data found -> Fetch from API
+        // If empty OR dummy data found -> Wipe and Fetch from API
         if (dbFixtures.isEmpty() || isDummyData) {
-            System.out.println("Cache miss or Dummy Data detected. Fetching real data from API...");
+            System.out.println("Refreshing fixtures for " + from + " to " + to);
 
-            // Clean up the bad data first to prevent duplicates
-            if (isDummyData) {
-                fixtureRepo.deleteAll(dbFixtures);
+            // 1. Wipe old/dummy data in a single atomic transaction (Prevents Deadlock)
+            if (!dbFixtures.isEmpty()) {
+                fixtureRepo.deleteByMatchDateBetween(start, end);
             }
 
+            // 2. Fetch fresh data from API
             externalApiService.fetchRealFixtures(from, to);
+
+            // 3. Return the new data
             return fixtureRepo.findByDateRange(start, end);
         }
 

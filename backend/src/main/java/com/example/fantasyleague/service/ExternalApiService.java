@@ -43,8 +43,9 @@ public class ExternalApiService {
         this.teamString = teamString;
     }
 
+    // FIXED: Better team matching to prevent duplicates
     private Team findTeamLoosely(String apiName) {
-        // 1. Try exact match first (Efficient & Prevents Duplicates)
+        // 1. Try exact match first
         Team exact = teamRepo.findByName(apiName);
         if (exact != null) return exact;
 
@@ -84,7 +85,6 @@ public class ExternalApiService {
                             team.setLogoUrl((String) teamData.get("team_logo"));
                             teamRepo.save(team);
 
-                            // ... (Player logic remains the same) ...
                             if (teamData.containsKey("players")) {
                                 List<Map<String, Object>> playersList = (List<Map<String, Object>>) teamData.get("players");
                                 for (Map<String, Object> pData : playersList) {
@@ -117,7 +117,6 @@ public class ExternalApiService {
 
     @SuppressWarnings("unchecked")
     public void fetchOfficialStandings() {
-        // ... (Keep existing implementation) ...
         this.webClient.get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/")
@@ -178,6 +177,7 @@ public class ExternalApiService {
                 for (Map<String, Object> fData : fixtures) {
                     Long eventKey = Long.parseLong(String.valueOf(fData.get("event_key")));
 
+                    // Strictly use ID from API to prevent duplicates
                     Fixture f = fixtureRepo.findById(eventKey).orElse(new Fixture());
                     f.setId(eventKey);
 
@@ -185,7 +185,7 @@ public class ExternalApiService {
                     f.setAwayTeam(findTeamLoosely((String) fData.get("event_away_team")));
                     f.setMatchDate(LocalDate.parse((String) fData.get("event_date")));
 
-                    // FIX: Handle potential NULL time from API gracefully
+                    // Safe Time Parsing
                     Object timeObj = fData.get("event_time");
                     f.setMatchTime(timeObj != null ? (String) timeObj : "00:00");
 
@@ -210,7 +210,6 @@ public class ExternalApiService {
         }
     }
 
-    // ... (Keep the rest of the file: fetchInjuries, fetchTopScorers, etc.) ...
     @SuppressWarnings("unchecked")
     public void fetchInjuries() {
         this.webClient.get()
