@@ -1,27 +1,47 @@
+/* --- Navigation Tabs Container --- */
+.nav-tabs {
+    border-bottom: 1px solid #dee2e6;
+    background-color: #ffffff; /* Force white background */
+}
+
+/* --- The Buttons (Default State) --- */
 .nav-tabs .nav-link {
-    color: #6c757d;
-    background: none;
-    border-bottom: 3px solid transparent !important;
+    color: #444444 !important;    /* Force Dark Grey text */
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    font-weight: 700;
+    font-size: 0.9rem;
+    padding: 15px 25px;
+    cursor: pointer;
+    transition: all 0.2s ease;
 }
 
+/* --- Hover State (When you mouse over) --- */
+.nav-tabs .nav-link:hover {
+    color: #000000 !important;    /* Black text */
+    background-color: #f0f0f0;    /* Light Grey background */
+    border-bottom: 3px solid #cccccc;
+}
+
+/* --- Active State (The Selected Tab) --- */
 .nav-tabs .nav-link.active {
-    color: var(--bs-primary);
-    border-bottom: 3px solid var(--bs-primary) !important;
+    color: #000000 !important;    /* Force Black text */
+    background-color: #ffffff;    /* White background */
+    border-bottom: 3px solid #d9534f !important; /* RED underline */
 }
 
+/* --- Player Card Styles --- */
 .player-card {
-    transition: transform 0.2s;
+    transition: transform 0.2s ease;
+    border-left: 4px solid transparent;
 }
 
 .player-card:hover {
-    transform: translateX(5px);
-    border-left: 4px solid var(--bs-primary) !important;
+    transform: translateY(-5px);
+    border-left: 4px solid #d9534f; /* Red accent on hover */
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
 }
 
-.extra-small {
-    font-size: 0.7rem;
-}
-
-.ls-wide {
-    letter-spacing: 2px;
-}
+.extra-small { font-size: 0.7rem; font-weight: 700; }
+.ls-wide { letter-spacing: 1px; }
