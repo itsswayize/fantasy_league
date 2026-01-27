@@ -1,39 +1,74 @@
-<header class="fpl-header py-3 shadow bg-primary text-white">
+<div class="top-bar py-1 text-white">
   <div class="container d-flex justify-content-between align-items-center">
-    <h2 class="m-0 fw-bold">Fantasy League</h2>
+    <small class="fw-bold ls-wide text-white-50" style="font-size: 0.7rem;">FANTASY PREMIER LEAGUE DASHBOARD</small>
     <div class="d-flex align-items-center">
-      <span class="badge bg-dark rounded-pill px-3">Live API Feed</span>
+      <span class="badge bg-success rounded-pill px-2 py-1 extra-small">
+        <i class="bi bi-circle-fill me-1" style="font-size: 6px; vertical-align: middle;"></i> LIVE API
+      </span>
     </div>
   </div>
-</header>
+</div>
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm sticky-top">
+<nav class="navbar navbar-expand-lg navbar-dark sticky-top fpl-navbar">
   <div class="container">
-    <a class="navbar-brand fw-bold" routerLink="/">FPL PRO</a>
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+    
+    <a class="navbar-brand fw-bold d-flex align-items-center me-5" routerLink="/">
+      <div class="brand-icon me-2 d-flex align-items-center justify-content-center">
+        <i class="bi bi-trophy-fill"></i>
+      </div>
+      <span class="brand-text">FPL <span class="text-success">PRO</span></span>
+    </a>
+
+    <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
       <span class="navbar-toggler-icon"></span>
     </button>
+
     <div class="collapse navbar-collapse" id="navbarNav">
-      <ul class="navbar-nav me-auto">
+      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+        
         <li class="nav-item">
-          <a class="nav-link" routerLink="/matches" routerLinkActive="active">Matches</a>
+          <a class="nav-link" routerLink="/matches" routerLinkActive="active">
+            <i class="bi bi-calendar-event me-1 d-lg-none"></i> Matches
+          </a>
         </li>
+        
         <li class="nav-item">
-          <a class="nav-link" routerLink="/table" routerLinkActive="active">Table</a>
+          <a class="nav-link" routerLink="/table" routerLinkActive="active">
+            <i class="bi bi-list-ol me-1 d-lg-none"></i> Table
+          </a>
         </li>
+        
         <li class="nav-item">
-          <a class="nav-link" routerLink="/injuries" routerLinkActive="active">Injuries</a>
+          <a class="nav-link" routerLink="/statistics" routerLinkActive="active">
+            <i class="bi bi-graph-up me-1 d-lg-none"></i> Stats
+          </a>
         </li>
+        
         <li class="nav-item">
-          <a class="nav-link" routerLink="/clubs" routerLinkActive="active">Clubs</a>
+          <a class="nav-link" routerLink="/injuries" routerLinkActive="active">
+            <i class="bi bi-bandaid me-1 d-lg-none"></i> Injuries
+          </a>
         </li>
+        
+        <li class="nav-item">
+          <a class="nav-link" routerLink="/clubs" routerLinkActive="active">
+            <i class="bi bi-shield-shaded me-1 d-lg-none"></i> Clubs
+          </a>
+        </li>
+
       </ul>
-      <div class="d-flex align-items-center">
-        <span class="text-white-50 small">Premier League</span>
+
+      <div class="d-none d-lg-flex align-items-center">
+        <div class="input-group input-group-sm me-3" style="width: 200px;">
+          <span class="input-group-text bg-white border-0 text-muted"><i class="bi bi-search"></i></span>
+          <input type="text" class="form-control border-0 shadow-none" placeholder="Search player...">
+        </div>
       </div>
+
     </div>
   </div>
 </nav>
 
-<main class="py-4 min-vh-100"> <router-outlet></router-outlet>
+<main class="py-4 min-vh-100"> 
+  <router-outlet></router-outlet>
 </main>

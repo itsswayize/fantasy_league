@@ -2,29 +2,48 @@
 
 :root {
   --fpl-purple: #37003c;
+  --fpl-purple-dark: #240029;
   --fpl-green: #00ff85;
   --fpl-pink: #e90052;
-  --fpl-bg: #f3f3f3;
+  --fpl-blue: #04f5ff;
 }
 
 body {
-  background-color: var(--fpl-bg);
+  background: radial-gradient(circle at top left, #4a0050 0%, #37003c 40%, #1a001d 100%);
+  color: #ffffff; /* Default all text to white */
   font-family: 'Inter', sans-serif;
+  min-height: 100vh;
 }
 
-.fpl-header {
-  background: var(--fpl-purple);
-  color: white;
-  border-bottom: 4px solid var(--fpl-pink);
+/* --- FORCE WHITE TEXT ON EVERYTHING --- */
+h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 {
+  color: #ffffff !important;
 }
 
-.fpl-card {
-  border: none;
-  border-radius: 0;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+.text-dark {
+  color: #ffffff !important; /* Override 'text-dark' class to be white */
 }
 
-.fpl-table-header {
-  background-color: var(--fpl-purple) !important;
-  color: white;
+.text-muted {
+  color: rgba(255, 255, 255, 0.6) !important; /* Make muted text readable */
+}
+
+/* --- FIX CARDS & LISTS TO BLEND IN --- */
+.card {
+  background-color: rgba(255, 255, 255, 0.05); /* See-through glass effect */
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.list-group-item {
+  background-color: transparent; /* Remove white background from lists */
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* --- FIX BADGES --- */
+.badge.bg-light {
+    background-color: rgba(255, 255, 255, 0.2) !important;
+    color: #ffffff !important;
+    border: none !important;
 }

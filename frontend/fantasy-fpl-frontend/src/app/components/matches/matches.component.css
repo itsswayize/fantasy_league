@@ -1,21 +1,28 @@
-/* Main Matchweek Navigation Bar (Purple Header) */
+/* --- Variables --- */
+:host {
+    --fpl-purple: #37003c;
+    --fpl-green: #00ff85;
+}
+
+/* --- Main Matchweek Navigation Bar --- */
 .matchweek-nav {
-    background-color: #37003c; /* Official Premier League Purple */
-    padding: 12px 20px;
-    border-radius: 8px 8px 0 0; /* Rounded top corners only to join with list */
+    /* Use the variable and a subtle gradient to blend */
+    background: linear-gradient(180deg, var(--fpl-purple) 0%, #2a002e 100%);
+    padding: 15px 20px;
+    border-radius: 12px 12px 0 0; /* Smooth top corners */
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1); /* Subtle separator */
 }
 
-/* Rounded Pill Arrow Buttons */
+/* Navigation Buttons */
 .matchweek-nav .btn-link {
     background-color: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 50%;
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -25,8 +32,10 @@
 }
 
 .matchweek-nav .btn-link:hover:not([disabled]) {
-    background-color: rgba(255, 255, 255, 0.2);
-    transform: scale(1.1);
+    background-color: var(--fpl-green); /* Green accent on hover */
+    color: var(--fpl-purple) !important;
+    border-color: var(--fpl-green);
+    transform: scale(1.05);
 }
 
 .matchweek-nav .btn-link[disabled] {
@@ -34,65 +43,59 @@
     cursor: not-allowed;
 }
 
-/* Matchweek Title and Date Text */
+/* Text Styling */
 .matchweek-nav h5 {
-    font-size: 1rem;
-    font-weight: 700;
+    font-size: 1.1rem;
+    font-weight: 800;
     letter-spacing: 0.5px;
     margin-bottom: 2px;
 }
 
 .matchweek-nav small {
     font-size: 0.8rem;
-    color: #00ff85; /* Premier League Green highlight */
+    color: var(--fpl-green); /* Signature Green */
     font-weight: 600;
 }
 
-/* Container for the matchweek results list */
+/* --- Results List Container --- */
 .results-wrapper {
-    background-color: #37003c;
-    padding: 15px 25px 25px 25px;
-    border-radius: 0 0 12px 12px; /* Rounded bottom corners */
-    box-shadow: 0 8px 16px rgba(0,0,0,0.2);
-    margin-top: -1px; /* Glues the nav and results together */
+    /* Continue the gradient from the nav bar */
+    background: #2a002e; 
+    padding: 10px 20px 20px 20px;
+    border-radius: 0 0 12px 12px;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+    margin-top: 0; 
 }
 
-/* Individual match row styling */
+/* --- Individual Rows --- */
 .result-row {
-    background-color: transparent !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    background-color: transparent !important; /* Blend into wrapper */
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
     transition: background-color 0.2s ease;
-    border-radius: 0;
-    margin-bottom: 0 !important;
+}
+
+.result-row:last-child {
+    border-bottom: none !important;
 }
 
 .result-row:hover {
-    background-color: rgba(255, 255, 255, 0.05) !important;
+    background-color: rgba(255, 255, 255, 0.05) !important; /* Subtle highlight */
 }
 
-/* Score badge (The centered result) */
+/* --- Score Badges --- */
 .score-badge {
-    background-color: #ffffff !important; /* White badge */
-    color: #37003c !important; /* Purple text */
-    min-width: 80px;
+    background-color: #ffffff !important;
+    color: var(--fpl-purple) !important;
+    min-width: 70px;
     font-weight: 800;
-    font-size: 1.1rem;
-    padding: 6px 12px;
-    border-radius: 4px;
+    font-size: 1rem;
+    padding: 6px 10px;
+    border-radius: 6px;
     display: inline-block;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
-/* Team Logo scaling and visibility */
-.team-logo {
-    object-fit: contain;
-    background-color: white; 
-    padding: 4px;
-    border-radius: 4px;
-    width: 40px;
-    height: 40px;
-}
-
-/* Team Name styling */
+/* --- Teams --- */
 .team-name {
     color: #ffffff !important;
     font-weight: 700;
@@ -101,16 +104,19 @@
     font-size: 0.9rem;
 }
 
-/* Responsive fixes */
-@media (max-width: 768px) {
-    .team-name {
-        font-size: 0.75rem;
-    }
-    .score-badge {
-        min-width: 65px;
-        font-size: 0.9rem;
-    }
-    .matchweek-nav {
-        padding: 10px;
-    }
+.team-logo {
+    object-fit: contain;
+    background-color: white; 
+    padding: 3px;
+    border-radius: 50%; /* Circular logos look cleaner */
+    width: 32px;
+    height: 32px;
+}
+
+/* --- Date Headers --- */
+h5.fw-bold.text-white {
+    margin-top: 20px;
+    font-size: 0.95rem;
+    opacity: 0.9;
+    border-color: var(--fpl-green) !important; /* Change red border to Green */
 }

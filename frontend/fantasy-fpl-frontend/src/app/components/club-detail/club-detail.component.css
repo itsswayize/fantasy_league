@@ -1,47 +1,54 @@
-/* --- Navigation Tabs Container --- */
+/* --- Navigation Tabs --- */
 .nav-tabs {
-    border-bottom: 1px solid #dee2e6;
-    background-color: #ffffff; /* Force white background */
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    background-color: transparent; /* No white background */
 }
 
-/* --- The Buttons (Default State) --- */
 .nav-tabs .nav-link {
-    color: #444444 !important;    /* Force Dark Grey text */
+    color: rgba(255, 255, 255, 0.6); /* Dimmed white for inactive */
     background: transparent;
     border: none;
-    border-bottom: 3px solid transparent;
     font-weight: 700;
-    font-size: 0.9rem;
     padding: 15px 25px;
-    cursor: pointer;
     transition: all 0.2s ease;
 }
 
-/* --- Hover State (When you mouse over) --- */
 .nav-tabs .nav-link:hover {
-    color: #000000 !important;    /* Black text */
-    background-color: #f0f0f0;    /* Light Grey background */
-    border-bottom: 3px solid #cccccc;
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.05);
 }
 
-/* --- Active State (The Selected Tab) --- */
 .nav-tabs .nav-link.active {
-    color: #000000 !important;    /* Force Black text */
-    background-color: #ffffff;    /* White background */
-    border-bottom: 3px solid #d9534f !important; /* RED underline */
+    color: #ffffff !important;
+    background-color: transparent;
+    border-bottom: 3px solid var(--bs-primary) !important; /* Blue or Green underline */
 }
 
-/* --- Player Card Styles --- */
+/* --- Matches List (Blending In) --- */
+.list-group-item {
+    background-color: transparent !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: white !important;
+}
+
+.list-group-item:hover {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* --- Player Cards --- */
 .player-card {
+    background-color: rgba(255, 255, 255, 0.05); /* Glass effect */
+    border: 1px solid rgba(255, 255, 255, 0.1);
     transition: transform 0.2s ease;
-    border-left: 4px solid transparent;
 }
 
 .player-card:hover {
     transform: translateY(-5px);
-    border-left: 4px solid #d9534f; /* Red accent on hover */
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: var(--bs-primary);
 }
 
-.extra-small { font-size: 0.7rem; font-weight: 700; }
-.ls-wide { letter-spacing: 1px; }
+/* --- Text Fixes --- */
+.fw-bold.text-dark {
+    color: white !important; /* Force overrides */
+}
