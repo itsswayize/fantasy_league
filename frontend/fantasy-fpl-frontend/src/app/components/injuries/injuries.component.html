@@ -21,19 +21,19 @@
             <li class="list-group-item py-3" *ngFor="let player of group.players">
               <div class="d-flex align-items-center">
                 <div class="shrink-0">
-                  <img [src]="player.imageUrl || 'assets/default-player.png'" 
-                       (error)="player.imageUrl = 'assets/default-player.png'"
+                  <img [src]="player.imageUrl || 'public/default-player.png'"
+                       (error)="player.imageUrl = 'public/default-player.png'"
                        class="rounded-circle border bg-light" width="40" height="40"
                        style="object-fit: cover;">
                 </div>
-                
+
                 <div class="ms-3">
                   <div class="fw-bold small text-dark">{{ player.name }}</div>
-                  
+
                   <span class="badge bg-danger-subtle text-danger extra-small mt-1 fw-bold text-uppercase">
                     {{ player.injuryType === 'Match Fitness / Assessment' ? 'INJURED' : (player.injuryType || 'INJURED') }}
                   </span>
-                  
+
                   <div class="text-muted extra-small text-uppercase mt-1">{{ player.position }}</div>
                 </div>
               </div>

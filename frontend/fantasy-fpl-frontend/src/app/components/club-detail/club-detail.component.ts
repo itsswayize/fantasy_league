@@ -12,8 +12,8 @@ import { LeagueService } from '../../services/league.service';
 })
 export class ClubDetailComponent implements OnInit {
   club: any = null;
-  fixtures: any[] = [];
-  activeTab: string = 'squad'; // Default tab
+  groupedFixtures: any[] = []; // Changed to store grouped fixtures
+  activeTab: string = 'squad';
 
   constructor(
     private route: ActivatedRoute,
@@ -25,7 +25,6 @@ export class ClubDetailComponent implements OnInit {
     if (idParam) {
       const id = Number(idParam);
       
-      // Fetch Club Details (including squad)
       this.leagueService.getClubDetails(id).subscribe({
         next: (data: any) => {
           this.club = data;
@@ -33,10 +32,15 @@ export class ClubDetailComponent implements OnInit {
         error: (err: any) => console.error('Error fetching club details', err)
       });
 
-      // Fetch Club-Specific Fixtures
       this.leagueService.getClubFixtures(id).subscribe({
         next: (data: any[]) => {
-          this.fixtures = data;
+          // Remove duplicates
+          const uniqueData = data.filter((value, index, self) =>
+            index === self.findIndex((t) => (
+              t.id === value.id
+            ))
+          );
+          this.processFixtures(uniqueData);
         },
         error: (err: any) => console.error('Error fetching club fixtures', err)
       });
@@ -45,5 +49,30 @@ export class ClubDetailComponent implements OnInit {
 
   setTab(tabName: string): void {
     this.activeTab = tabName;
+  }
+
+  processFixtures(data: any[]) {
+    // Sort by Date
+    data.sort((a, b) => 
+      new Date(a.matchDate + 'T' + (a.matchTime || '00:00')).getTime() - 
+      new Date(b.matchDate + 'T' + (b.matchTime || '00:00')).getTime()
+    );
+
+    const groups = new Map<string, any[]>();
+
+    data.forEach(f => {
+      const header = this.formatDateHeader(f.matchDate);
+      if (!groups.has(header)) {
+        groups.set(header, []);
+      }
+      groups.get(header)?.push(f);
+    });
+
+    this.groupedFixtures = Array.from(groups, ([date, fixtures]) => ({ date, fixtures }));
+  }
+
+  private formatDateHeader(dateStr: string): string {
+    const d = new Date(dateStr);
+    return new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).format(d);
   }
 }

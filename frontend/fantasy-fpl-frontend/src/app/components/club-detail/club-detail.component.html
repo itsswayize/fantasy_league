@@ -2,7 +2,8 @@
   <div class="card border-0 shadow-sm mb-4 overflow-hidden">
     <div class="card-body bg-dark text-white py-4">
       <div class="d-flex align-items-center">
-        <img [src]="club.logoUrl || 'assets/default-logo.png'" 
+        <img [src]="club.logoUrl" 
+             (error)="club.logoUrl = 'assets/default-player.png'" 
              width="100" height="100" 
              class="me-4 shadow-sm rounded p-2 bg-white object-fit-contain" 
              alt="{{ club.name }}">
@@ -33,10 +34,13 @@
     <div class="col-md-6 col-lg-4" *ngFor="let player of club.squad">
       <div class="card border-0 shadow-sm h-100 player-card">
         <div class="card-body d-flex align-items-center">
+          
           <img [src]="player.imageUrl || 'assets/default-player.png'" 
-     (error)="player.imageUrl = 'assets/default-player.png'"
-     class="rounded-circle border bg-light" width="40" height="40"
-     style="object-fit: cover;">
+               (error)="player.imageUrl = 'assets/default-player.png'"
+               class="rounded-circle border bg-light me-3" 
+               width="50" height="50"
+               style="object-fit: cover;">
+               
           <div>
             <div class="fw-bold text-dark">{{ player.name }}</div>
             <div class="small text-muted text-uppercase fw-semibold" style="font-size: 0.7rem;">{{ player.position }}</div>
@@ -49,28 +53,33 @@
 
   <div *ngIf="activeTab === 'matches'">
     <div class="card border-0 shadow-sm">
-      <div class="list-group list-group-flush">
-        <div class="list-group-item py-4 border-bottom" *ngFor="let fixture of fixtures">
-          <div class="row align-items-center text-center">
-            <div class="col-4 fw-bold" [class.text-primary]="fixture.homeTeam.id === club.id">
-              {{ fixture.homeTeam.name }}
-            </div>
-            <div class="col-2">
-              <img [src]="fixture.homeTeam.logoUrl" width="30" alt="">
-            </div>
-            <div class="col-2">
-              <span class="badge bg-dark px-3 py-2 fs-6">
-                {{ fixture.played ? fixture.homeScore + ' - ' + fixture.awayScore : (fixture.matchDate | date:'HH:mm') }}
-              </span>
-            </div>
-            <div class="col-2">
-              <img [src]="fixture.awayTeam.logoUrl" width="30" alt="">
-            </div>
-            <div class="col-2 fw-bold" [class.text-primary]="fixture.awayTeam.id === club.id">
-              {{ fixture.awayTeam.name }}
+      <div class="card-body p-4">
+        <div *ngFor="let group of groupedFixtures" class="mb-4">
+          <h6 class="fw-bold text-dark ps-2 mb-3 border-start border-3 border-danger">{{ group.date }}</h6>
+          <div class="list-group list-group-flush">
+            <div class="list-group-item py-3 border-bottom" *ngFor="let fixture of group.fixtures">
+              <div class="row align-items-center text-center">
+                <div class="col-4 fw-bold text-end" [class.text-primary]="fixture.homeTeam.id === club.id">
+                  <span class="d-none d-md-inline me-2">{{ fixture.homeTeam.name }}</span>
+                  <span class="d-md-none me-2">{{ fixture.homeTeam.name | slice:0:3 }}</span>
+                  <img [src]="fixture.homeTeam.logoUrl" (error)="fixture.homeTeam.logoUrl = 'assets/default-player.png'" width="25">
+                </div>
+                <div class="col-4">
+                  <span *ngIf="fixture.status === 'Finished'" class="badge bg-dark px-3 py-2">{{ fixture.homeScore }} - {{ fixture.awayScore }}</span>
+                  <span *ngIf="fixture.status !== 'Finished'" class="badge bg-light text-dark border px-3 py-2">
+                     {{ fixture.matchTime ? (fixture.matchTime | slice:0:5) : (fixture.matchDate | date:'HH:mm') }}
+                  </span>
+                </div>
+                <div class="col-4 fw-bold text-start" [class.text-primary]="fixture.awayTeam.id === club.id">
+                  <img [src]="fixture.awayTeam.logoUrl" (error)="fixture.awayTeam.logoUrl = 'assets/default-player.png'" width="25" class="me-2">
+                  <span class="d-none d-md-inline">{{ fixture.awayTeam.name }}</span>
+                  <span class="d-md-none">{{ fixture.awayTeam.name | slice:0:3 }}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
+        <div *ngIf="groupedFixtures.length === 0" class="text-center py-4 text-muted">No matches scheduled.</div>
       </div>
     </div>
   </div>
