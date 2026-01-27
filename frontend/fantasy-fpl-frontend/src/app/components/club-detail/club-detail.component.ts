@@ -12,7 +12,7 @@ import { LeagueService } from '../../services/league.service';
 })
 export class ClubDetailComponent implements OnInit {
   club: any = null;
-  groupedFixtures: any[] = []; // Changed to store grouped fixtures
+  groupedFixtures: any[] = []; 
   activeTab: string = 'squad';
 
   constructor(
@@ -34,12 +34,16 @@ export class ClubDetailComponent implements OnInit {
 
       this.leagueService.getClubFixtures(id).subscribe({
         next: (data: any[]) => {
-          // Remove duplicates
+          // --- FIXED DEDUPLICATION LOGIC ---
+          // Filter by Content (HomeID + AwayID + Date) instead of just ID
           const uniqueData = data.filter((value, index, self) =>
             index === self.findIndex((t) => (
-              t.id === value.id
+              t.homeTeam.id === value.homeTeam.id && 
+              t.awayTeam.id === value.awayTeam.id && 
+              t.matchDate === value.matchDate
             ))
           );
+          
           this.processFixtures(uniqueData);
         },
         error: (err: any) => console.error('Error fetching club fixtures', err)
