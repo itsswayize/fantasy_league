@@ -42,25 +42,25 @@ public class LeagueController {
     @GetMapping("/health")
     public String health() { return "UP"; }
 
-    @PostMapping("/simulate")
-    public void simulateToday() {
-        leagueService.simulateTodayMatches();
-    }
-
-    // NOTE: Only run this if you want dummy data!
-    @PostMapping("/generate-fixtures")
-    public String generateFixtures() {
-        fixtureGenerator.generateSeason();
-        return "Season fixtures generated!";
-    }
+    // ==========================================
+    // ⚡ INSTANT READS (FRONTEND -> DATABASE CACHE)
+    // ==========================================
 
     @GetMapping("/standings")
     public List<Team> getStandings() {
-        externalApiService.fetchOfficialStandings();
-        return teamRepo.findAll();
+        List<Team> teams = teamRepo.findAll();
+
+        // Failsafe: If the database is empty (e.g. fresh start), fetch it once.
+        if (teams.isEmpty()) {
+            System.out.println("Database empty. Initializing standings from API...");
+            externalApiService.fetchOfficialStandings();
+            return teamRepo.findAll();
+        }
+
+        // Normal behavior: INSTANT response from PostgreSQL. No API wait time.
+        return teams;
     }
 
-    // FIXED: Deadlock-free Smart Fixture Fetching
     @GetMapping("/fixtures")
     public List<Fixture> getFixtures(
             @RequestParam(value = "from", required = false) String from,
@@ -68,7 +68,7 @@ public class LeagueController {
     ) {
         if (from == null || to == null) {
             from = LocalDate.now().minusDays(1).toString();
-            to = LocalDate.now().plusDays(6).toString();
+            to = LocalDate.now().plusDays(14).toString(); // Default 2 weeks view
         }
 
         LocalDate start = LocalDate.parse(from);
@@ -76,39 +76,63 @@ public class LeagueController {
 
         List<Fixture> dbFixtures = fixtureRepo.findByDateRange(start, end);
 
-        // Detect bad data: If matches exist but have "00:00" as time
         boolean isDummyData = !dbFixtures.isEmpty() && dbFixtures.stream()
                 .anyMatch(f -> f.getMatchTime() == null || f.getMatchTime().equals("00:00"));
 
-        // If empty OR dummy data found -> Wipe and Fetch from API
+        // Failsafe: Only fetch if database is empty or has generated dummy data
         if (dbFixtures.isEmpty() || isDummyData) {
-            System.out.println("Refreshing fixtures for " + from + " to " + to);
-
-            // 1. Wipe old/dummy data in a single atomic transaction (Prevents Deadlock)
+            System.out.println("No valid fixtures in DB for dates. Fetching from API...");
             if (!dbFixtures.isEmpty()) {
                 fixtureRepo.deleteByMatchDateBetween(start, end);
             }
-
-            // 2. Fetch fresh data from API
             externalApiService.fetchRealFixtures(from, to);
-
-            // 3. Return the new data
             return fixtureRepo.findByDateRange(start, end);
         }
 
+        // Normal behavior: INSTANT response from PostgreSQL.
         return dbFixtures;
-    }
-
-    @Scheduled(cron = "0 0 * * * *")
-    public void refreshData() {
-        externalApiService.fetchOfficialStandings();
-        String today = LocalDate.now().toString();
-        externalApiService.fetchRealFixtures(today, today);
     }
 
     @GetMapping("/clubs")
     public List<Team> getClubs() {
         return teamRepo.findAll();
+    }
+
+
+    // ==========================================
+    // ⚙️ THE BACKGROUND WORKER (SCHEDULED + DB)
+    // ==========================================
+
+    // Runs automatically at the start of every hour (00:00, 01:00, 02:00, etc.)
+    @Scheduled(cron = "0 0 * * * *")
+    public void hourlyBackgroundSync() {
+        System.out.println("Running hourly background sync to update Database...");
+
+        // 1. Update the standings quietly
+        externalApiService.fetchOfficialStandings();
+
+        // 2. Fetch matches for yesterday, today, and the next 14 days
+        String from = LocalDate.now().minusDays(1).toString();
+        String to = LocalDate.now().plusDays(14).toString();
+
+        // This quietly updates the database. The frontend doesn't have to wait for this!
+        externalApiService.fetchRealFixtures(from, to);
+    }
+
+
+    // ==========================================
+    // OTHER STANDARD ENDPOINTS
+    // ==========================================
+
+    @PostMapping("/simulate")
+    public void simulateToday() {
+        leagueService.simulateTodayMatches();
+    }
+
+    @PostMapping("/generate-fixtures")
+    public String generateFixtures() {
+        fixtureGenerator.generateSeason();
+        return "Season fixtures generated!";
     }
 
     @GetMapping("/clubs/{id}")
