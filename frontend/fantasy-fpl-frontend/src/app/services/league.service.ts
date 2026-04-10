@@ -5,7 +5,7 @@ import { Observable, switchMap, delay } from 'rxjs';
 @Injectable({ providedIn: 'root' })
 export class LeagueService {
   // Use your actual Render ID
-  private apiUrl = 'https://fpl-backend-em6n.onrender.com/api/league';
+  private apiUrl = 'https://fantasy-league-v2.onrender.com/api/league';
 
   constructor(private http: HttpClient) { }
 
@@ -15,7 +15,7 @@ export class LeagueService {
   getFixtures(from?: string, to?: string): Observable<any[]> {
     let params = new HttpParams()
       .set('t', new Date().getTime().toString()); // Cache busting
-    
+
     // If dates are provided, send them to the backend
     if (from && to) {
       params = params.set('from', from).set('to', to);
