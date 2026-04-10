@@ -20,6 +20,7 @@ public class ExternalApiService {
     private final PlayerRepository playerRepo;
     private final FixtureRepository fixtureRepo;
 
+    // Your active API Key
     private final String API_KEY = "23196417d519ab950437a547795787b9aa690a26c36d2e530943243088a7ff5e";
 
     public ExternalApiService(@Value("${fpl.league.id:152}") String teamString,
@@ -43,19 +44,23 @@ public class ExternalApiService {
         this.teamString = teamString;
     }
 
-    // FIXED: Better team matching to prevent duplicates
+    // 🛡️ FIX 1: Strict Null Safety for Team Matching
     private Team findTeamLoosely(String apiName) {
+        if (apiName == null || apiName.trim().isEmpty()) return null;
+
         // 1. Try exact match first
         Team exact = teamRepo.findByName(apiName);
         if (exact != null) return exact;
 
-        // 2. Fuzzy match
+        // 2. Fuzzy match with strict null checks to ignore ghost database records
         return teamRepo.findAll().stream()
-                .filter(t -> t.getName().equalsIgnoreCase(apiName) ||
-                        t.getName().toLowerCase().contains(apiName.toLowerCase()) ||
-                        apiName.toLowerCase().contains(t.getName().toLowerCase()) ||
-                        (apiName.equals("Manchester Utd") && t.getName().contains("Manchester United")) ||
-                        (apiName.equals("Wolves") && t.getName().contains("Wolverhampton")))
+                .filter(t -> t.getName() != null && (
+                        t.getName().equalsIgnoreCase(apiName) ||
+                                t.getName().toLowerCase().contains(apiName.toLowerCase()) ||
+                                apiName.toLowerCase().contains(t.getName().toLowerCase()) ||
+                                (apiName.equals("Manchester Utd") && t.getName().contains("Manchester United")) ||
+                                (apiName.equals("Wolves") && t.getName().contains("Wolverhampton"))
+                ))
                 .findFirst()
                 .orElse(null);
     }
@@ -80,6 +85,8 @@ public class ExternalApiService {
                                 List<Map<String, Object>> teams = (List<Map<String, Object>>) resultObj;
                                 for (Map<String, Object> teamData : teams) {
                                     String teamName = (String) teamData.get("team_name");
+                                    if (teamName == null) continue; // Skip blank teams from API
+
                                     Team team = findTeamLoosely(teamName);
                                     if (team == null) {
                                         team = new Team();
@@ -92,8 +99,11 @@ public class ExternalApiService {
                                         List<Map<String, Object>> playersList = (List<Map<String, Object>>) teamData.get("players");
                                         for (Map<String, Object> pData : playersList) {
                                             String playerName = (String) pData.get("player_name");
+                                            if (playerName == null) continue; // Skip blank players
+
+                                            // 🛡️ FIX 2: Strict Null Safety for Player Matching
                                             Player p = playerRepo.findAll().stream()
-                                                    .filter(existing -> existing.getName().equals(playerName))
+                                                    .filter(existing -> existing.getName() != null && existing.getName().equals(playerName))
                                                     .findFirst().orElse(new Player());
 
                                             p.setName(playerName);
@@ -140,7 +150,7 @@ public class ExternalApiService {
                             Object resultObj = response.get("result");
                             List<Map<String, Object>> standings = null;
 
-                            // SAFE PARSING: Handles both Map and List API responses
+                            // 🛡️ FIX 3: Dynamic Data Parsing (Handles API randomly returning Maps OR Lists)
                             if (resultObj instanceof Map) {
                                 standings = (List<Map<String, Object>>) ((Map<String, Object>) resultObj).get("total");
                             } else if (resultObj instanceof List) {
@@ -212,7 +222,7 @@ public class ExternalApiService {
                     for (Map<String, Object> fData : fixtures) {
                         Object eventKeyObj = fData.get("event_key");
 
-                        // SAFE CHECK: Skip this entry if the API returned an error message instead of a match
+                        // 🛡️ FIX 4: SAFE CHECK for empty/error fixture objects from API
                         if (eventKeyObj == null) {
                             continue;
                         }
@@ -279,9 +289,13 @@ public class ExternalApiService {
                                 for (Map<String, Object> iData : result) {
                                     String apiPlayerName = (String) iData.get("player_name");
                                     if(apiPlayerName == null) continue;
+
+                                    // 🛡️ FIX 5: Strict Null Safety for Injuries
                                     playerRepo.findAll().stream()
-                                            .filter(p -> p.getName().toLowerCase().contains(apiPlayerName.toLowerCase()) ||
-                                                    apiPlayerName.toLowerCase().contains(p.getName().toLowerCase()))
+                                            .filter(p -> p.getName() != null && (
+                                                    p.getName().toLowerCase().contains(apiPlayerName.toLowerCase()) ||
+                                                            apiPlayerName.toLowerCase().contains(p.getName().toLowerCase())
+                                            ))
                                             .findFirst()
                                             .ifPresent(p -> {
                                                 p.setInjured(true);
@@ -318,8 +332,10 @@ public class ExternalApiService {
                                 for (Map<String, Object> sData : scorers) {
                                     String playerName = (String) sData.get("player_name");
                                     if (playerName == null) continue;
+
+                                    // 🛡️ FIX 6: Strict Null Safety for Top Scorers
                                     playerRepo.findAll().stream()
-                                            .filter(p -> p.getName().equalsIgnoreCase(playerName))
+                                            .filter(p -> p.getName() != null && p.getName().equalsIgnoreCase(playerName))
                                             .findFirst()
                                             .ifPresent(p -> {
                                                 Object goalsObj = sData.get("goals");
