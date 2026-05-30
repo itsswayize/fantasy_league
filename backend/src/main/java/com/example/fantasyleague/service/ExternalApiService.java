@@ -21,7 +21,7 @@ public class ExternalApiService {
     private final FixtureRepository fixtureRepo;
 
     // Your active API Key
-    private final String API_KEY = "23196417d519ab950437a547795787b9aa690a26c36d2e530943243088a7ff5e";
+    private final String API_KEY = "2e4d82534145853baa0ced2da087c764923fe13f650f75075197b7cc16486403";
 
     public ExternalApiService(@Value("${fpl.league.id:152}") String teamString,
                               WebClient.Builder builder,
