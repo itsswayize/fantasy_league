@@ -5,7 +5,7 @@ import { Observable, switchMap, delay } from 'rxjs';
 @Injectable({ providedIn: 'root' })
 export class LeagueService {
   // Use your actual Render ID
-  private apiUrl = 'https://fantasy-league-v2.onrender.com/api/league';
+  private apiUrl = 'https://fpl-java-backend.onrender.com/api/league';
 
   constructor(private http: HttpClient) { }
 

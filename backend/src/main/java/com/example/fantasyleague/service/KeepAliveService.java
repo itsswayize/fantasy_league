@@ -16,7 +16,7 @@ public class KeepAliveService {
     public void keepAlive() {
         try {
             // FIXED: Using the active V2 Render URL to prevent sleep mode
-            String url = "https://fantasy-league-v2.onrender.com/api/league/health";
+            String url = "https://fpl-java-backend.onrender.com/api/league/health";
             String response = restTemplate.getForObject(url, String.class);
             logger.info("Self-ping successful. Status: " + response);
         } catch (Exception e) {
