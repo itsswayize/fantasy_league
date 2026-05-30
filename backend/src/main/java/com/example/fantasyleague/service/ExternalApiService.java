@@ -44,19 +44,18 @@ public class ExternalApiService {
         this.teamString = teamString;
     }
 
-    // FIXED: Strict Null Safety for Team Matching to ignore ghost records
     private Team findTeamLoosely(String apiName) {
         if (apiName == null || apiName.trim().isEmpty()) return null;
 
-        // 1. Try exact match first
-        Team exact = teamRepo.findByName(apiName);
-        if (exact != null) return exact;
+        List<Team> exactMatches = teamRepo.findAll().stream()
+                .filter(t -> t.getName() != null && t.getName().equalsIgnoreCase(apiName))
+                .toList();
 
-        // 2. Fuzzy match with strict null checks
+        if (!exactMatches.isEmpty()) return exactMatches.get(0); // Return the first one if there are duplicates
+
         return teamRepo.findAll().stream()
                 .filter(t -> t.getName() != null && (
-                        t.getName().equalsIgnoreCase(apiName) ||
-                                t.getName().toLowerCase().contains(apiName.toLowerCase()) ||
+                        t.getName().toLowerCase().contains(apiName.toLowerCase()) ||
                                 apiName.toLowerCase().contains(t.getName().toLowerCase()) ||
                                 (apiName.equals("Manchester Utd") && t.getName().contains("Manchester United")) ||
                                 (apiName.equals("Wolves") && t.getName().contains("Wolverhampton"))
@@ -67,132 +66,130 @@ public class ExternalApiService {
 
     @SuppressWarnings("unchecked")
     public void fetchTeamsFromApi() {
-        this.webClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/")
-                        .queryParam("met", "Teams")
-                        .queryParam("leagueId", teamString)
-                        .queryParam("APIkey", API_KEY)
-                        .build())
-                .retrieve()
-                .bodyToMono(Map.class)
-                .retry(3) // Ensure network resilience
-                .subscribe(response -> {
-                    if (response != null && response.get("result") != null) {
-                        try {
-                            Object resultObj = response.get("result");
-                            if (resultObj instanceof List) {
-                                List<Map<String, Object>> teams = (List<Map<String, Object>>) resultObj;
-                                for (Map<String, Object> teamData : teams) {
-                                    String teamName = (String) teamData.get("team_name");
-                                    if (teamName == null) continue; // Skip blank teams from API
+        try {
+            Map response = this.webClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/")
+                            .queryParam("met", "Teams")
+                            .queryParam("leagueId", teamString)
+                            .queryParam("APIkey", API_KEY)
+                            .build())
+                    .retrieve()
+                    .bodyToMono(Map.class)
+                    .retry(3)
+                    .block(); // Synchronous execution
 
-                                    Team team = findTeamLoosely(teamName);
-                                    if (team == null) {
-                                        team = new Team();
-                                        team.setName(teamName);
-                                    }
-                                    team.setLogoUrl((String) teamData.get("team_logo"));
-                                    teamRepo.save(team);
+            if (response != null && response.get("result") != null) {
+                Object resultObj = response.get("result");
+                if (resultObj instanceof List) {
+                    List<Map<String, Object>> teams = (List<Map<String, Object>>) resultObj;
+                    for (Map<String, Object> teamData : teams) {
+                        String teamName = (String) teamData.get("team_name");
+                        if (teamName == null) continue;
 
-                                    if (teamData.containsKey("players") && teamData.get("players") instanceof List) {
-                                        List<Map<String, Object>> playersList = (List<Map<String, Object>>) teamData.get("players");
-                                        for (Map<String, Object> pData : playersList) {
-                                            String playerName = (String) pData.get("player_name");
-                                            if (playerName == null) continue; // Skip blank players
+                        Team team = findTeamLoosely(teamName);
+                        if (team == null) {
+                            team = new Team();
+                            team.setName(teamName);
+                        }
+                        team.setLogoUrl((String) teamData.get("team_logo"));
+                        teamRepo.save(team);
 
-                                            // FIXED: Strict Null Safety for Player Matching
-                                            Player p = playerRepo.findAll().stream()
-                                                    .filter(existing -> existing.getName() != null && existing.getName().equals(playerName))
-                                                    .findFirst().orElse(new Player());
+                        if (teamData.containsKey("players") && teamData.get("players") instanceof List) {
+                            List<Map<String, Object>> playersList = (List<Map<String, Object>>) teamData.get("players");
+                            for (Map<String, Object> pData : playersList) {
+                                String playerName = (String) pData.get("player_name");
+                                if (playerName == null) continue;
 
-                                            p.setName(playerName);
-                                            p.setPosition((String) pData.get("player_type"));
-                                            p.setImageUrl((String) pData.get("player_image"));
-                                            p.setTeam(team);
+                                Player p = playerRepo.findAll().stream()
+                                        .filter(existing -> existing.getName() != null && existing.getName().equals(playerName))
+                                        .findFirst().orElse(new Player());
 
-                                            String isInjured = (String) pData.get("player_injured");
-                                            p.setInjured("Yes".equalsIgnoreCase(isInjured));
+                                p.setName(playerName);
+                                p.setPosition((String) pData.get("player_type"));
+                                p.setImageUrl((String) pData.get("player_image"));
+                                p.setTeam(team);
 
-                                            if (p.isInjured()) {
-                                                if (p.getInjuryType() == null || p.getInjuryType().equals("Unavailable")) {
-                                                    p.setInjuryType("Match Fitness / Assessment");
-                                                }
-                                            }
-                                            playerRepo.save(p);
-                                        }
+                                String isInjured = (String) pData.get("player_injured");
+                                p.setInjured("Yes".equalsIgnoreCase(isInjured));
+
+                                if (p.isInjured()) {
+                                    if (p.getInjuryType() == null || p.getInjuryType().equals("Unavailable")) {
+                                        p.setInjuryType("Match Fitness / Assessment");
                                     }
                                 }
-                                System.out.println("Teams and Players Synced.");
+                                playerRepo.save(p);
                             }
-                        } catch (Exception e) {
-                            System.err.println("Error parsing teams: " + e.getMessage());
                         }
                     }
-                }, error -> System.err.println("Error fetching teams: " + error.getMessage()));
+                    System.out.println("Teams and Players Synced.");
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error fetching teams: " + e.getMessage());
+        }
     }
 
     @SuppressWarnings("unchecked")
     public void fetchOfficialStandings() {
-        this.webClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/")
-                        .queryParam("met", "Standings")
-                        .queryParam("leagueId", teamString)
-                        .queryParam("APIkey", API_KEY)
-                        .build())
-                .retrieve()
-                .bodyToMono(Map.class)
-                .retry(3) // Added retry for connection drops
-                .subscribe(response -> {
-                    if (response != null && response.get("result") != null) {
-                        try {
-                            Object resultObj = response.get("result");
-                            List<Map<String, Object>> standings = null;
+        try {
+            Map response = this.webClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/")
+                            .queryParam("met", "Standings")
+                            .queryParam("leagueId", teamString)
+                            .queryParam("APIkey", API_KEY)
+                            .build())
+                    .retrieve()
+                    .bodyToMono(Map.class)
+                    .retry(3)
+                    .block(); // Synchronous execution
 
-                            // SAFE PARSING: Handles both Map and List API responses
-                            if (resultObj instanceof Map) {
-                                standings = (List<Map<String, Object>>) ((Map<String, Object>) resultObj).get("total");
-                            } else if (resultObj instanceof List) {
-                                List<?> listObj = (List<?>) resultObj;
-                                if (!listObj.isEmpty() && listObj.get(0) instanceof Map && ((Map<?, ?>) listObj.get(0)).containsKey("total")) {
-                                    standings = (List<Map<String, Object>>) ((Map<String, Object>) listObj.get(0)).get("total");
-                                } else {
-                                    standings = (List<Map<String, Object>>) listObj;
-                                }
+            if (response != null && response.get("result") != null) {
+                Object resultObj = response.get("result");
+                List<Map<String, Object>> standings = null;
+
+                if (resultObj instanceof Map) {
+                    standings = (List<Map<String, Object>>) ((Map<String, Object>) resultObj).get("total");
+                } else if (resultObj instanceof List) {
+                    List<?> listObj = (List<?>) resultObj;
+                    if (!listObj.isEmpty() && listObj.get(0) instanceof Map && ((Map<?, ?>) listObj.get(0)).containsKey("total")) {
+                        standings = (List<Map<String, Object>>) ((Map<String, Object>) listObj.get(0)).get("total");
+                    } else {
+                        standings = (List<Map<String, Object>>) listObj;
+                    }
+                }
+
+                if (standings != null) {
+                    for (Map<String, Object> sData : standings) {
+                        if (String.valueOf(sData.get("fk_stage_key")).equals("6") || sData.get("fk_stage_key") == null) {
+                            String apiTeamName = (String) sData.get("standing_team");
+                            if (apiTeamName == null) continue;
+
+                            Team team = findTeamLoosely(apiTeamName);
+                            if (team == null) {
+                                team = new Team();
+                                team.setName(apiTeamName);
+                                team.setAttackRating(70);
+                                team.setDefenseRating(70);
                             }
-
-                            if (standings != null) {
-                                for (Map<String, Object> sData : standings) {
-                                    if (String.valueOf(sData.get("fk_stage_key")).equals("6") || sData.get("fk_stage_key") == null) {
-                                        String apiTeamName = (String) sData.get("standing_team");
-                                        if (apiTeamName == null) continue; // Skip bad data
-
-                                        Team team = findTeamLoosely(apiTeamName);
-                                        if (team == null) {
-                                            team = new Team();
-                                            team.setName(apiTeamName);
-                                            team.setAttackRating(70);
-                                            team.setDefenseRating(70);
-                                        }
-                                        team.setPoints(Integer.parseInt(String.valueOf(sData.getOrDefault("standing_PTS", 0))));
-                                        team.setMatchesPlayed(Integer.parseInt(String.valueOf(sData.getOrDefault("standing_P", 0))));
-                                        team.setWins(Integer.parseInt(String.valueOf(sData.getOrDefault("standing_W", 0))));
-                                        team.setDraws(Integer.parseInt(String.valueOf(sData.getOrDefault("standing_D", 0))));
-                                        team.setLosses(Integer.parseInt(String.valueOf(sData.getOrDefault("standing_L", 0))));
-                                        team.setGoalsFor(Integer.parseInt(String.valueOf(sData.getOrDefault("standing_F", 0))));
-                                        team.setGoalsAgainst(Integer.parseInt(String.valueOf(sData.getOrDefault("standing_A", 0))));
-                                        team.setGoalDifference(Integer.parseInt(String.valueOf(sData.getOrDefault("standing_GD", 0))));
-                                        teamRepo.save(team);
-                                    }
-                                }
-                                System.out.println("Standings Synced.");
-                            }
-                        } catch (Exception e) {
-                            System.err.println("Error parsing standings: " + e.getMessage());
+                            team.setPoints(Integer.parseInt(String.valueOf(sData.getOrDefault("standing_PTS", 0))));
+                            team.setMatchesPlayed(Integer.parseInt(String.valueOf(sData.getOrDefault("standing_P", 0))));
+                            team.setWins(Integer.parseInt(String.valueOf(sData.getOrDefault("standing_W", 0))));
+                            team.setDraws(Integer.parseInt(String.valueOf(sData.getOrDefault("standing_D", 0))));
+                            team.setLosses(Integer.parseInt(String.valueOf(sData.getOrDefault("standing_L", 0))));
+                            team.setGoalsFor(Integer.parseInt(String.valueOf(sData.getOrDefault("standing_F", 0))));
+                            team.setGoalsAgainst(Integer.parseInt(String.valueOf(sData.getOrDefault("standing_A", 0))));
+                            team.setGoalDifference(Integer.parseInt(String.valueOf(sData.getOrDefault("standing_GD", 0))));
+                            teamRepo.save(team);
                         }
                     }
-                }, error -> System.err.println("Error syncing standings: " + error.getMessage()));
+                    System.out.println("Standings Synced.");
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error syncing standings: " + e.getMessage());
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -209,50 +206,49 @@ public class ExternalApiService {
                             .build())
                     .retrieve()
                     .bodyToMono(Map.class)
-                    .retry(3) // Added retry to fix premature close errors
+                    .retry(3)
                     .block();
 
             if (response != null && response.get("result") != null) {
                 Object resultObj = response.get("result");
 
-                // Ensure the result is actually a list before casting
                 if (resultObj instanceof List) {
                     List<Map<String, Object>> fixtures = (List<Map<String, Object>>) resultObj;
 
                     for (Map<String, Object> fData : fixtures) {
                         Object eventKeyObj = fData.get("event_key");
 
-                        // SAFE CHECK: Skip this entry if the API returned an error message instead of a match
                         if (eventKeyObj == null) {
                             continue;
                         }
 
                         Long eventKey = Long.parseLong(String.valueOf(eventKeyObj));
 
-                        // Strictly use ID from API to prevent duplicates
-                        Fixture f = fixtureRepo.findById(eventKey).orElse(new Fixture());
-                        f.setId(eventKey);
+                        // FIX: Only save if it doesn't exist
+                        if (!fixtureRepo.existsById(eventKey)) {
+                            Fixture f = new Fixture();
+                            f.setId(eventKey);
 
-                        f.setHomeTeam(findTeamLoosely((String) fData.get("event_home_team")));
-                        f.setAwayTeam(findTeamLoosely((String) fData.get("event_away_team")));
-                        f.setMatchDate(LocalDate.parse((String) fData.get("event_date")));
+                            f.setHomeTeam(findTeamLoosely((String) fData.get("event_home_team")));
+                            f.setAwayTeam(findTeamLoosely((String) fData.get("event_away_team")));
+                            f.setMatchDate(LocalDate.parse((String) fData.get("event_date")));
 
-                        // Safe Time Parsing
-                        Object timeObj = fData.get("event_time");
-                        f.setMatchTime(timeObj != null ? (String) timeObj : "00:00");
+                            Object timeObj = fData.get("event_time");
+                            f.setMatchTime(timeObj != null ? (String) timeObj : "00:00");
 
-                        f.setStatus((String) fData.get("event_status"));
+                            f.setStatus((String) fData.get("event_status"));
 
-                        String finalResult = String.valueOf(fData.get("event_final_result"));
-                        if (finalResult != null && finalResult.contains(" - ")) {
-                            String[] scores = finalResult.split(" - ");
-                            f.setHomeScore(Integer.parseInt(scores[0].trim()));
-                            f.setAwayScore(Integer.parseInt(scores[1].trim()));
-                        }
-                        f.setPlayed("Finished".equals(fData.get("event_status")));
+                            String finalResult = String.valueOf(fData.get("event_final_result"));
+                            if (finalResult != null && finalResult.contains(" - ")) {
+                                String[] scores = finalResult.split(" - ");
+                                f.setHomeScore(Integer.parseInt(scores[0].trim()));
+                                f.setAwayScore(Integer.parseInt(scores[1].trim()));
+                            }
+                            f.setPlayed("Finished".equals(fData.get("event_status")));
 
-                        if (f.getHomeTeam() != null && f.getAwayTeam() != null) {
-                            fixtureRepo.save(f);
+                            if (f.getHomeTeam() != null && f.getAwayTeam() != null) {
+                                fixtureRepo.save(f);
+                            }
                         }
                     }
                     System.out.println("Fixtures synced for: " + fromDate + " to " + toDate);
@@ -265,92 +261,90 @@ public class ExternalApiService {
 
     @SuppressWarnings("unchecked")
     public void fetchInjuries() {
-        this.webClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/")
-                        .queryParam("met", "Injuries")
-                        .queryParam("leagueId", teamString)
-                        .queryParam("APIkey", API_KEY)
-                        .build())
-                .retrieve()
-                .bodyToMono(Map.class)
-                .retry(3)
-                .subscribe(response -> {
-                    if (response != null && response.get("result") != null) {
-                        try {
-                            Object resultObj = response.get("result");
-                            if (resultObj instanceof List) {
-                                List<Map<String, Object>> result = (List<Map<String, Object>>) resultObj;
-                                playerRepo.findAll().forEach(p -> {
-                                    p.setInjured(false);
-                                    p.setInjuryType(null);
+        try {
+            Map response = this.webClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/")
+                            .queryParam("met", "Injuries")
+                            .queryParam("leagueId", teamString)
+                            .queryParam("APIkey", API_KEY)
+                            .build())
+                    .retrieve()
+                    .bodyToMono(Map.class)
+                    .retry(3)
+                    .block(); // Synchronous execution
+
+            if (response != null && response.get("result") != null) {
+                Object resultObj = response.get("result");
+                if (resultObj instanceof List) {
+                    List<Map<String, Object>> result = (List<Map<String, Object>>) resultObj;
+                    playerRepo.findAll().forEach(p -> {
+                        p.setInjured(false);
+                        p.setInjuryType(null);
+                        playerRepo.save(p);
+                    });
+                    for (Map<String, Object> iData : result) {
+                        String apiPlayerName = (String) iData.get("player_name");
+                        if (apiPlayerName == null) continue;
+
+                        playerRepo.findAll().stream()
+                                .filter(p -> p.getName() != null && (
+                                        p.getName().toLowerCase().contains(apiPlayerName.toLowerCase()) ||
+                                                apiPlayerName.toLowerCase().contains(p.getName().toLowerCase())
+                                ))
+                                .findFirst()
+                                .ifPresent(p -> {
+                                    p.setInjured(true);
+                                    p.setInjuryType((String) iData.get("injury_reason"));
                                     playerRepo.save(p);
                                 });
-                                for (Map<String, Object> iData : result) {
-                                    String apiPlayerName = (String) iData.get("player_name");
-                                    if(apiPlayerName == null) continue;
-
-                                    // FIXED: Strict Null Safety for Injuries
-                                    playerRepo.findAll().stream()
-                                            .filter(p -> p.getName() != null && (
-                                                    p.getName().toLowerCase().contains(apiPlayerName.toLowerCase()) ||
-                                                            apiPlayerName.toLowerCase().contains(p.getName().toLowerCase())
-                                            ))
-                                            .findFirst()
-                                            .ifPresent(p -> {
-                                                p.setInjured(true);
-                                                p.setInjuryType((String) iData.get("injury_reason"));
-                                                playerRepo.save(p);
-                                            });
-                                }
-                            }
-                        } catch (Exception e) {
-                            System.err.println("Error parsing injuries: " + e.getMessage());
-                        }
                     }
-                }, error -> System.err.println("Error fetching injuries: " + error.getMessage()));
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error fetching injuries: " + e.getMessage());
+        }
     }
 
     @SuppressWarnings("unchecked")
     public void fetchTopScorers() {
-        this.webClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/")
-                        .queryParam("met", "Topscorers")
-                        .queryParam("leagueId", teamString)
-                        .queryParam("APIkey", API_KEY)
-                        .build())
-                .retrieve()
-                .bodyToMono(Map.class)
-                .retry(3)
-                .subscribe(response -> {
-                    if (response != null && response.get("result") != null) {
-                        try {
-                            Object resultObj = response.get("result");
-                            if (resultObj instanceof List) {
-                                List<Map<String, Object>> scorers = (List<Map<String, Object>>) resultObj;
-                                for (Map<String, Object> sData : scorers) {
-                                    String playerName = (String) sData.get("player_name");
-                                    if (playerName == null) continue;
+        try {
+            Map response = this.webClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/")
+                            .queryParam("met", "Topscorers")
+                            .queryParam("leagueId", teamString)
+                            .queryParam("APIkey", API_KEY)
+                            .build())
+                    .retrieve()
+                    .bodyToMono(Map.class)
+                    .retry(3)
+                    .block(); // Synchronous execution
 
-                                    // FIXED: Strict Null Safety for Top Scorers
-                                    playerRepo.findAll().stream()
-                                            .filter(p -> p.getName() != null && p.getName().equalsIgnoreCase(playerName))
-                                            .findFirst()
-                                            .ifPresent(p -> {
-                                                Object goalsObj = sData.get("goals");
-                                                p.setGoals(goalsObj != null ? Integer.parseInt(String.valueOf(goalsObj)) : 0);
-                                                Object assistsObj = sData.get("assists");
-                                                p.setAssists(assistsObj != null ? Integer.parseInt(String.valueOf(assistsObj)) : 0);
-                                                playerRepo.save(p);
-                                            });
-                                }
-                            }
-                        } catch (Exception e) {
-                            System.err.println("Error parsing top scorers: " + e.getMessage());
-                        }
+            if (response != null && response.get("result") != null) {
+                Object resultObj = response.get("result");
+                if (resultObj instanceof List) {
+                    List<Map<String, Object>> scorers = (List<Map<String, Object>>) resultObj;
+                    for (Map<String, Object> sData : scorers) {
+                        String playerName = (String) sData.get("player_name");
+                        if (playerName == null) continue;
+
+                        playerRepo.findAll().stream()
+                                .filter(p -> p.getName() != null && p.getName().equalsIgnoreCase(playerName))
+                                .findFirst()
+                                .ifPresent(p -> {
+                                    Object goalsObj = sData.get("goals");
+                                    p.setGoals(goalsObj != null ? Integer.parseInt(String.valueOf(goalsObj)) : 0);
+                                    Object assistsObj = sData.get("assists");
+                                    p.setAssists(assistsObj != null ? Integer.parseInt(String.valueOf(assistsObj)) : 0);
+                                    playerRepo.save(p);
+                                });
                     }
-                }, error -> System.err.println("Error fetching top scorers: " + error.getMessage()));
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error fetching top scorers: " + e.getMessage());
+        }
     }
 
     public void fetchStandings() {
