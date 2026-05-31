@@ -3,7 +3,7 @@ package com.example.fantasyleague.service;
 import com.example.fantasyleague.model.*;
 import com.example.fantasyleague.repository.*;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.dao.DataIntegrityViolationException; // FIX: Added import
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -23,6 +23,18 @@ public class ExternalApiService {
 
     // Your active API Key
     private final String API_KEY = "2e4d82534145853baa0ced2da087c764923fe13f650f75075197b7cc16486403";
+
+    // ==========================================
+    // 📖 DICTIONARY: Map API abbreviations to Full Names
+    // ==========================================
+    private static final Map<String, String> TEAM_ALIASES = Map.of(
+            "manchester utd", "manchester united",
+            "man utd", "manchester united",
+            "wolves", "wolverhampton",
+            "wolverhampton wanderers", "wolverhampton",
+            "nott'm forest", "nottingham forest",
+            "spurs", "tottenham"
+    );
 
     public ExternalApiService(@Value("${fpl.league.id:152}") String teamString,
                               WebClient.Builder builder,
@@ -45,30 +57,22 @@ public class ExternalApiService {
         this.teamString = teamString;
     }
 
+    // ==========================================
+    // ⚡ EFFICIENT LOOKUP
+    // ==========================================
     private Team findTeamLoosely(String apiName) {
         if (apiName == null || apiName.trim().isEmpty()) return null;
 
-        // 1. Normalize the incoming API name
-        String searchName = apiName.toLowerCase()
-                .replace("manchester utd", "manchester united")
-                .replace("man utd", "manchester united")
-                .replace("wolves", "wolverhampton");
+        // 1. Try Exact Match First (Fastest)
+        Team exact = teamRepo.findByName(apiName);
+        if (exact != null) return exact;
 
-        return teamRepo.findAll().stream()
-                .filter(t -> {
-                    if (t.getName() == null) return false;
+        // 2. Normalize and check the dictionary
+        String normalizedSearch = apiName.toLowerCase().trim();
+        String actualName = TEAM_ALIASES.getOrDefault(normalizedSearch, normalizedSearch);
 
-                    // 2. Normalize the Database name
-                    String dbName = t.getName().toLowerCase()
-                            .replace("manchester utd", "manchester united")
-                            .replace("man utd", "manchester united")
-                            .replace("wolves", "wolverhampton");
-
-                    // 3. Compare the normalized strings
-                    return dbName.contains(searchName) || searchName.contains(dbName);
-                })
-                .findFirst()
-                .orElse(null);
+        // 3. Let PostgreSQL find it based on our clean dictionary value
+        return teamRepo.findFirstByNameContainingIgnoreCase(actualName);
     }
 
     @SuppressWarnings("unchecked")
@@ -84,7 +88,7 @@ public class ExternalApiService {
                     .retrieve()
                     .bodyToMono(Map.class)
                     .retry(3)
-                    .block(); // Synchronous execution
+                    .block();
 
             if (response != null && response.get("result") != null) {
                 Object resultObj = response.get("result");
@@ -99,9 +103,8 @@ public class ExternalApiService {
                             team = new Team();
                             team.setName(teamName);
                             try {
-                                team = teamRepo.save(team); // FIX: Save immediately to establish identity
+                                team = teamRepo.save(team);
                             } catch (DataIntegrityViolationException e) {
-                                // Race condition caught: another thread just created this team
                                 team = teamRepo.findByName(teamName);
                             }
                         }
@@ -157,7 +160,7 @@ public class ExternalApiService {
                     .retrieve()
                     .bodyToMono(Map.class)
                     .retry(3)
-                    .block(); // Synchronous execution
+                    .block();
 
             if (response != null && response.get("result") != null) {
                 Object resultObj = response.get("result");
@@ -188,9 +191,8 @@ public class ExternalApiService {
                                 team.setDefenseRating(70);
 
                                 try {
-                                    team = teamRepo.save(team); // FIX: Try to establish identity immediately
+                                    team = teamRepo.save(team);
                                 } catch (DataIntegrityViolationException e) {
-                                    // FIX: Race condition caught: another thread just created this team
                                     team = teamRepo.findByName(apiTeamName);
                                 }
                             }
@@ -247,7 +249,6 @@ public class ExternalApiService {
 
                         Long eventKey = Long.parseLong(String.valueOf(eventKeyObj));
 
-                        // FIX: Only save if it doesn't exist
                         if (!fixtureRepo.existsById(eventKey)) {
                             Fixture f = new Fixture();
                             f.setId(eventKey);
@@ -295,7 +296,7 @@ public class ExternalApiService {
                     .retrieve()
                     .bodyToMono(Map.class)
                     .retry(3)
-                    .block(); // Synchronous execution
+                    .block();
 
             if (response != null && response.get("result") != null) {
                 Object resultObj = response.get("result");
@@ -342,7 +343,7 @@ public class ExternalApiService {
                     .retrieve()
                     .bodyToMono(Map.class)
                     .retry(3)
-                    .block(); // Synchronous execution
+                    .block();
 
             if (response != null && response.get("result") != null) {
                 Object resultObj = response.get("result");
