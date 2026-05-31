@@ -48,19 +48,25 @@ public class ExternalApiService {
     private Team findTeamLoosely(String apiName) {
         if (apiName == null || apiName.trim().isEmpty()) return null;
 
-        List<Team> exactMatches = teamRepo.findAll().stream()
-                .filter(t -> t.getName() != null && t.getName().equalsIgnoreCase(apiName))
-                .toList();
-
-        if (!exactMatches.isEmpty()) return exactMatches.get(0); // Return the first one if there are duplicates
+        // 1. Normalize the incoming API name
+        String searchName = apiName.toLowerCase()
+                .replace("manchester utd", "manchester united")
+                .replace("man utd", "manchester united")
+                .replace("wolves", "wolverhampton");
 
         return teamRepo.findAll().stream()
-                .filter(t -> t.getName() != null && (
-                        t.getName().toLowerCase().contains(apiName.toLowerCase()) ||
-                                apiName.toLowerCase().contains(t.getName().toLowerCase()) ||
-                                (apiName.equals("Manchester Utd") && t.getName().contains("Manchester United")) ||
-                                (apiName.equals("Wolves") && t.getName().contains("Wolverhampton"))
-                ))
+                .filter(t -> {
+                    if (t.getName() == null) return false;
+
+                    // 2. Normalize the Database name
+                    String dbName = t.getName().toLowerCase()
+                            .replace("manchester utd", "manchester united")
+                            .replace("man utd", "manchester united")
+                            .replace("wolves", "wolverhampton");
+
+                    // 3. Compare the normalized strings
+                    return dbName.contains(searchName) || searchName.contains(dbName);
+                })
                 .findFirst()
                 .orElse(null);
     }
