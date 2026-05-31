@@ -3,6 +3,7 @@ package com.example.fantasyleague.service;
 import com.example.fantasyleague.model.*;
 import com.example.fantasyleague.repository.*;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException; // FIX: Added import
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -91,7 +92,14 @@ public class ExternalApiService {
                         if (team == null) {
                             team = new Team();
                             team.setName(teamName);
+                            try {
+                                team = teamRepo.save(team); // FIX: Save immediately to establish identity
+                            } catch (DataIntegrityViolationException e) {
+                                // Race condition caught: another thread just created this team
+                                team = teamRepo.findByName(teamName);
+                            }
                         }
+
                         team.setLogoUrl((String) teamData.get("team_logo"));
                         teamRepo.save(team);
 
@@ -172,7 +180,15 @@ public class ExternalApiService {
                                 team.setName(apiTeamName);
                                 team.setAttackRating(70);
                                 team.setDefenseRating(70);
+
+                                try {
+                                    team = teamRepo.save(team); // FIX: Try to establish identity immediately
+                                } catch (DataIntegrityViolationException e) {
+                                    // FIX: Race condition caught: another thread just created this team
+                                    team = teamRepo.findByName(apiTeamName);
+                                }
                             }
+
                             team.setPoints(Integer.parseInt(String.valueOf(sData.getOrDefault("standing_PTS", 0))));
                             team.setMatchesPlayed(Integer.parseInt(String.valueOf(sData.getOrDefault("standing_P", 0))));
                             team.setWins(Integer.parseInt(String.valueOf(sData.getOrDefault("standing_W", 0))));
@@ -181,6 +197,7 @@ public class ExternalApiService {
                             team.setGoalsFor(Integer.parseInt(String.valueOf(sData.getOrDefault("standing_F", 0))));
                             team.setGoalsAgainst(Integer.parseInt(String.valueOf(sData.getOrDefault("standing_A", 0))));
                             team.setGoalDifference(Integer.parseInt(String.valueOf(sData.getOrDefault("standing_GD", 0))));
+
                             teamRepo.save(team);
                         }
                     }

@@ -13,6 +13,7 @@ public class Team {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(unique = true, nullable = false) // FIX: Enforce uniqueness at the database level
     private String name;
     private String logoUrl; // For realistic club logos
 
