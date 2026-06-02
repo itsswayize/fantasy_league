@@ -1,21 +1,39 @@
 <div class="container mt-4">
   <div class="card shadow-lg p-3 mb-5 bg-body-tertiary rounded">
     <div class="card-body">
-      <h2 class="card-title text-center text-black mb-4">Premier League Table</h2>
+      <h2 class="card-title text-center text-black mb-4">
+        Premier League Table
+      </h2>
       <div class="table-responsive">
         <table class="table table-hover align-middle">
           <thead class="table-dark">
             <tr>
               <th>Pos</th>
               <th>Club</th>
-              <th>Pl</th> <th>W</th>  <th>D</th>  <th>L</th>  <th>GF</th> <th>GA</th> <th>GD</th> <th>Pts</th> </tr>
+              <th>Pl</th>
+              <th>W</th>
+              <th>D</th>
+              <th>L</th>
+              <th>GF</th>
+              <th>GA</th>
+              <th>GD</th>
+              <th>Pts</th>
+            </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let team of teams; let i = index">
+            <tr
+              *ngFor="let team of teams; let i = index; trackBy: trackByTeamId"
+            >
               <td>{{ i + 1 }}</td>
               <td>
                 <div class="d-flex align-items-center">
-                  <img [src]="team.logoUrl" alt="{{ team.name }}" width="30" height="30" class="me-2">
+                  <img
+                    [src]="team.logoUrl"
+                    alt="{{ team.name }}"
+                    width="30"
+                    height="30"
+                    class="me-2"
+                  />
                   <span class="fw-bold">{{ team.name }}</span>
                 </div>
               </td>
@@ -31,14 +49,13 @@
           </tbody>
         </table>
       </div>
-      
+
       <div *ngIf="teams.length === 0" class="text-center p-4">
         <div class="spinner-border text-primary" role="status">
           <span class="visually-hidden">Loading...</span>
         </div>
         <p class="mt-2">Waiting for live data...</p>
       </div>
-
     </div>
   </div>
 </div>

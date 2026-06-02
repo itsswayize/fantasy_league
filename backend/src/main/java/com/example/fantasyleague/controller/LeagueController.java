@@ -28,10 +28,10 @@ public class LeagueController {
     private final ExternalApiService externalApiService;
 
     public LeagueController(LeagueService leagueService,
-                            TeamRepository teamRepo,
-                            FixtureRepository fixtureRepo,
-                            FixtureGenerator fixtureGenerator,
-                            ExternalApiService externalApiService) {
+            TeamRepository teamRepo,
+            FixtureRepository fixtureRepo,
+            FixtureGenerator fixtureGenerator,
+            ExternalApiService externalApiService) {
         this.leagueService = leagueService;
         this.teamRepo = teamRepo;
         this.fixtureRepo = fixtureRepo;
@@ -40,21 +40,24 @@ public class LeagueController {
     }
 
     @GetMapping("/health")
-    public String health() { return "UP"; }
+    public String health() {
+        return "UP";
+    }
 
     // ==========================================
     // ⚡ INSTANT READS (FRONTEND -> DATABASE CACHE)
     // ==========================================
 
     @GetMapping("/standings")
-    public List<Team> getStandings() {
+    public synchronized List<Team> getStandings() {
         List<Team> teams = teamRepo.findAll();
 
         // Failsafe: If the database is empty (e.g. fresh start), fetch it once.
+        // Use synchronized to prevent race condition with concurrent requests
         if (teams.isEmpty()) {
             System.out.println("Database empty. Initializing standings from API...");
             externalApiService.fetchOfficialStandings();
-            return teamRepo.findAll();
+            teams = teamRepo.findAll(); // Refresh list after sync
         }
 
         // Normal behavior: INSTANT response from PostgreSQL. No API wait time.
@@ -64,8 +67,7 @@ public class LeagueController {
     @GetMapping("/fixtures")
     public List<Fixture> getFixtures(
             @RequestParam(value = "from", required = false) String from,
-            @RequestParam(value = "to", required = false) String to
-    ) {
+            @RequestParam(value = "to", required = false) String to) {
         if (from == null || to == null) {
             from = LocalDate.now().minusDays(1).toString();
             to = LocalDate.now().plusDays(14).toString(); // Default 2 weeks view
@@ -98,7 +100,6 @@ public class LeagueController {
         return teamRepo.findAll();
     }
 
-
     // ==========================================
     // ⚙️ THE BACKGROUND WORKER (SCHEDULED + DB)
     // ==========================================
@@ -115,10 +116,10 @@ public class LeagueController {
         String from = LocalDate.now().minusDays(1).toString();
         String to = LocalDate.now().plusDays(14).toString();
 
-        // This quietly updates the database. The frontend doesn't have to wait for this!
+        // This quietly updates the database. The frontend doesn't have to wait for
+        // this!
         externalApiService.fetchRealFixtures(from, to);
     }
-
 
     // ==========================================
     // OTHER STANDARD ENDPOINTS

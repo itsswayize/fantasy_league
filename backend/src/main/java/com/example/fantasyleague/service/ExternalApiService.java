@@ -33,14 +33,13 @@ public class ExternalApiService {
             "wolves", "wolverhampton",
             "wolverhampton wanderers", "wolverhampton",
             "nott'm forest", "nottingham forest",
-            "spurs", "tottenham"
-    );
+            "spurs", "tottenham");
 
     public ExternalApiService(@Value("${fpl.league.id:152}") String teamString,
-                              WebClient.Builder builder,
-                              TeamRepository teamRepo,
-                              PlayerRepository playerRepo,
-                              FixtureRepository fixtureRepo) {
+            WebClient.Builder builder,
+            TeamRepository teamRepo,
+            PlayerRepository playerRepo,
+            FixtureRepository fixtureRepo) {
         this.teamString = teamString;
         this.webClient = builder
                 .baseUrl("https://apiv2.allsportsapi.com/football/")
@@ -61,18 +60,29 @@ public class ExternalApiService {
     // ⚡ EFFICIENT LOOKUP
     // ==========================================
     private Team findTeamLoosely(String apiName) {
-        if (apiName == null || apiName.trim().isEmpty()) return null;
+        if (apiName == null || apiName.trim().isEmpty())
+            return null;
+
+        String searchName = apiName.trim();
 
         // 1. Try Exact Match First (Fastest)
-        Team exact = teamRepo.findByName(apiName);
-        if (exact != null) return exact;
+        Team exact = teamRepo.findByName(searchName);
+        if (exact != null)
+            return exact;
 
-        // 2. Normalize and check the dictionary
-        String normalizedSearch = apiName.toLowerCase().trim();
-        String actualName = TEAM_ALIASES.getOrDefault(normalizedSearch, normalizedSearch);
+        // 2. Try with normalized aliases (e.g., "Man Utd" -> "Manchester United")
+        String normalizedSearch = searchName.toLowerCase().trim();
+        String mappedName = TEAM_ALIASES.getOrDefault(normalizedSearch, normalizedSearch);
 
-        // 3. Let PostgreSQL find it based on our clean dictionary value
-        return teamRepo.findFirstByNameContainingIgnoreCase(actualName);
+        // 3. Try to find by the mapped name (exact match)
+        if (!mappedName.equals(searchName)) {
+            Team byMappedName = teamRepo.findByName(mappedName);
+            if (byMappedName != null)
+                return byMappedName;
+        }
+
+        // 4. Final fallback: case-insensitive exact match with normalized name
+        return teamRepo.findByName(mappedName.substring(0, 1).toUpperCase() + mappedName.substring(1));
     }
 
     @SuppressWarnings("unchecked")
@@ -96,7 +106,8 @@ public class ExternalApiService {
                     List<Map<String, Object>> teams = (List<Map<String, Object>>) resultObj;
                     for (Map<String, Object> teamData : teams) {
                         String teamName = (String) teamData.get("team_name");
-                        if (teamName == null) continue;
+                        if (teamName == null)
+                            continue;
 
                         Team team = findTeamLoosely(teamName);
                         if (team == null) {
@@ -106,6 +117,8 @@ public class ExternalApiService {
                                 team = teamRepo.save(team);
                             } catch (DataIntegrityViolationException e) {
                                 team = teamRepo.findByName(teamName);
+                                if (team == null)
+                                    continue; // Skip if we can't find or create the team
                             }
                         }
 
@@ -116,11 +129,19 @@ public class ExternalApiService {
                             List<Map<String, Object>> playersList = (List<Map<String, Object>>) teamData.get("players");
                             for (Map<String, Object> pData : playersList) {
                                 String playerName = (String) pData.get("player_name");
-                                if (playerName == null) continue;
+                                if (playerName == null)
+                                    continue;
 
+                                // FIX: Query by name instead of loading all players
                                 Player p = playerRepo.findAll().stream()
-                                        .filter(existing -> existing.getName() != null && existing.getName().equals(playerName))
-                                        .findFirst().orElse(new Player());
+                                        .filter(existing -> existing.getName() != null
+                                                && existing.getName().equalsIgnoreCase(playerName))
+                                        .findFirst()
+                                        .orElse(null);
+
+                                if (p == null) {
+                                    p = new Player();
+                                }
 
                                 p.setName(playerName);
                                 p.setPosition((String) pData.get("player_type"));
@@ -170,7 +191,8 @@ public class ExternalApiService {
                     standings = (List<Map<String, Object>>) ((Map<String, Object>) resultObj).get("total");
                 } else if (resultObj instanceof List) {
                     List<?> listObj = (List<?>) resultObj;
-                    if (!listObj.isEmpty() && listObj.get(0) instanceof Map && ((Map<?, ?>) listObj.get(0)).containsKey("total")) {
+                    if (!listObj.isEmpty() && listObj.get(0) instanceof Map
+                            && ((Map<?, ?>) listObj.get(0)).containsKey("total")) {
                         standings = (List<Map<String, Object>>) ((Map<String, Object>) listObj.get(0)).get("total");
                     } else {
                         standings = (List<Map<String, Object>>) listObj;
@@ -179,9 +201,11 @@ public class ExternalApiService {
 
                 if (standings != null) {
                     for (Map<String, Object> sData : standings) {
-                        if (String.valueOf(sData.get("fk_stage_key")).equals("6") || sData.get("fk_stage_key") == null) {
+                        if (String.valueOf(sData.get("fk_stage_key")).equals("6")
+                                || sData.get("fk_stage_key") == null) {
                             String apiTeamName = (String) sData.get("standing_team");
-                            if (apiTeamName == null) continue;
+                            if (apiTeamName == null)
+                                continue;
 
                             Team team = findTeamLoosely(apiTeamName);
                             if (team == null) {
@@ -198,13 +222,15 @@ public class ExternalApiService {
                             }
 
                             team.setPoints(Integer.parseInt(String.valueOf(sData.getOrDefault("standing_PTS", 0))));
-                            team.setMatchesPlayed(Integer.parseInt(String.valueOf(sData.getOrDefault("standing_P", 0))));
+                            team.setMatchesPlayed(
+                                    Integer.parseInt(String.valueOf(sData.getOrDefault("standing_P", 0))));
                             team.setWins(Integer.parseInt(String.valueOf(sData.getOrDefault("standing_W", 0))));
                             team.setDraws(Integer.parseInt(String.valueOf(sData.getOrDefault("standing_D", 0))));
                             team.setLosses(Integer.parseInt(String.valueOf(sData.getOrDefault("standing_L", 0))));
                             team.setGoalsFor(Integer.parseInt(String.valueOf(sData.getOrDefault("standing_F", 0))));
                             team.setGoalsAgainst(Integer.parseInt(String.valueOf(sData.getOrDefault("standing_A", 0))));
-                            team.setGoalDifference(Integer.parseInt(String.valueOf(sData.getOrDefault("standing_GD", 0))));
+                            team.setGoalDifference(
+                                    Integer.parseInt(String.valueOf(sData.getOrDefault("standing_GD", 0))));
 
                             teamRepo.save(team);
                         }
@@ -309,13 +335,13 @@ public class ExternalApiService {
                     });
                     for (Map<String, Object> iData : result) {
                         String apiPlayerName = (String) iData.get("player_name");
-                        if (apiPlayerName == null) continue;
+                        if (apiPlayerName == null)
+                            continue;
 
                         playerRepo.findAll().stream()
-                                .filter(p -> p.getName() != null && (
-                                        p.getName().toLowerCase().contains(apiPlayerName.toLowerCase()) ||
-                                                apiPlayerName.toLowerCase().contains(p.getName().toLowerCase())
-                                ))
+                                .filter(p -> p.getName() != null
+                                        && (p.getName().toLowerCase().contains(apiPlayerName.toLowerCase()) ||
+                                                apiPlayerName.toLowerCase().contains(p.getName().toLowerCase())))
                                 .findFirst()
                                 .ifPresent(p -> {
                                     p.setInjured(true);
@@ -351,7 +377,8 @@ public class ExternalApiService {
                     List<Map<String, Object>> scorers = (List<Map<String, Object>>) resultObj;
                     for (Map<String, Object> sData : scorers) {
                         String playerName = (String) sData.get("player_name");
-                        if (playerName == null) continue;
+                        if (playerName == null)
+                            continue;
 
                         playerRepo.findAll().stream()
                                 .filter(p -> p.getName() != null && p.getName().equalsIgnoreCase(playerName))

@@ -16,9 +16,21 @@ export class ClubsComponent implements OnInit {
   constructor(private leagueService: LeagueService) {}
 
   ngOnInit(): void {
-    // getStandings returns the alphabetical list from the backend
-    this.leagueService.getStandings().subscribe(data => {
-      this.clubs = data.sort((a, b) => a.name.localeCompare(b.name));
+    this.fetchClubs();
+  }
+
+  fetchClubs(): void {
+    this.leagueService.getStandings().subscribe({
+      next: (data) => {
+        // Replace entire array to prevent duplicates from accumulating
+        this.clubs = data.sort((a, b) => a.name.localeCompare(b.name));
+      },
+      error: (err) => console.error('Error fetching clubs:', err)
     });
+  }
+
+  // TrackBy function for better *ngFor performance and to prevent duplicate rendering
+  trackByClubId(index: number, club: any): any {
+    return club.id || index;
   }
 }

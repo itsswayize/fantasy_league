@@ -10,7 +10,7 @@ import { LeagueService } from '../../services/league.service';
   styleUrls: ['./table.component.css']
 })
 export class TableComponent implements OnInit {
-  teams: any[] = []; // This variable name must match *ngFor="let team of teams"
+  teams: any[] = [];
 
   constructor(private leagueService: LeagueService) {}
 
@@ -21,13 +21,18 @@ export class TableComponent implements OnInit {
   fetchStandings() {
     this.leagueService.getStandings().subscribe({
       next: (data) => {
-        console.log('API Data Received:', data); // Check your browser console
-        // Sort by points (highest first), then goal difference
+        console.log('API Data Received:', data);
+        // Replace entire array instead of appending to prevent duplicates
         this.teams = data.sort((a: any, b: any) => 
           b.points - a.points || b.goalDifference - a.goalDifference
         );
       },
       error: (err) => console.error('Error fetching table:', err)
     });
+  }
+
+  // TrackBy function for better *ngFor performance and to prevent duplicate rendering
+  trackByTeamId(index: number, team: any): any {
+    return team.id || index;
   }
 }
