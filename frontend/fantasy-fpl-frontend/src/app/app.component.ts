@@ -39,7 +39,9 @@ export class AppComponent implements OnInit {
   simulateDay() {
     this.leagueService.simulateMatches().subscribe(() => {
       alert('Matches Simulated!');
-      this.loadData();
+      // FIX: Removed this.loadData() since child components manage their own data now.
+      // If you want the views to update automatically after simulation, uncomment the line below:
+      // window.location.reload(); 
     });
   }
 }
